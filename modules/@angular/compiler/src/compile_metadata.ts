@@ -6,34 +6,28 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ChangeDetectionStrategy, SchemaMetadata, ViewEncapsulation} from '@angular/core';
+import {ChangeDetectionStrategy, SchemaMetadata, Type, ViewEncapsulation} from '@angular/core';
 
-import {CHANGE_DETECTION_STRATEGY_VALUES, LIFECYCLE_HOOKS_VALUES, LifecycleHooks, VIEW_ENCAPSULATION_VALUES, reflector} from '../core_private';
-import {ListWrapper, StringMapWrapper} from '../src/facade/collection';
-import {BaseException, unimplemented} from '../src/facade/exceptions';
-import {NumberWrapper, RegExpWrapper, Type, isArray, isBlank, isBoolean, isNumber, isPresent, isString, isStringMap, normalizeBlank, normalizeBool, serializeEnum} from '../src/facade/lang';
-
+import {ListWrapper, MapWrapper, StringMapWrapper} from './facade/collection';
+import {isBlank, isPresent, isStringMap, normalizeBlank, normalizeBool} from './facade/lang';
+import {LifecycleHooks, reflector} from './private_import_core';
 import {CssSelector} from './selector';
 import {getUrlScheme} from './url_resolver';
 import {sanitizeIdentifier, splitAtColon} from './util';
 
-
+function unimplemented(): any {
+  throw new Error('unimplemented');
+}
 
 // group 0: "[prop] or (event) or @trigger"
 // group 1: "prop" from "[prop]"
 // group 2: "event" from "(event)"
 // group 3: "@trigger" from "@trigger"
-const HOST_REG_EXP = /^(?:(?:\[([^\]]+)\])|(?:\(([^\)]+)\)))|(\@[-\w]+)$/g;
+const HOST_REG_EXP = /^(?:(?:\[([^\]]+)\])|(?:\(([^\)]+)\)))|(\@[-\w]+)$/;
 const UNDEFINED = new Object();
 
 export abstract class CompileMetadataWithIdentifier {
   get identifier(): CompileIdentifierMetadata { return <CompileIdentifierMetadata>unimplemented(); }
-
-  get runtimeCacheKey(): any { return unimplemented(); }
-
-  get assetCacheKey(): any { return unimplemented(); }
-
-  equalsTo(id2: CompileMetadataWithIdentifier): boolean { return unimplemented(); }
 }
 
 export class CompileAnimationEntryMetadata {
@@ -87,17 +81,16 @@ export class CompileAnimationGroupMetadata extends CompileAnimationWithStepsMeta
 }
 
 export class CompileIdentifierMetadata implements CompileMetadataWithIdentifier {
-  runtime: any;
+  reference: any;
   name: string;
   prefix: string;
   moduleUrl: string;
   value: any;
-  private _assetCacheKey: any = UNDEFINED;
 
   constructor(
-      {runtime, name, moduleUrl, prefix, value}:
-          {runtime?: any, name?: string, moduleUrl?: string, prefix?: string, value?: any} = {}) {
-    this.runtime = runtime;
+      {reference, name, moduleUrl, prefix, value}:
+          {reference?: any, name?: string, moduleUrl?: string, prefix?: string, value?: any} = {}) {
+    this.reference = reference;
     this.name = name;
     this.prefix = prefix;
     this.moduleUrl = moduleUrl;
@@ -105,27 +98,6 @@ export class CompileIdentifierMetadata implements CompileMetadataWithIdentifier 
   }
 
   get identifier(): CompileIdentifierMetadata { return this; }
-
-  get runtimeCacheKey(): any { return this.identifier.runtime; }
-
-  get assetCacheKey(): any {
-    if (this._assetCacheKey === UNDEFINED) {
-      if (isPresent(this.moduleUrl) && isPresent(getUrlScheme(this.moduleUrl))) {
-        var uri = reflector.importUri({'filePath': this.moduleUrl, 'name': this.name});
-        this._assetCacheKey = `${this.name}|${uri}`;
-      } else {
-        this._assetCacheKey = null;
-      }
-    }
-    return this._assetCacheKey;
-  }
-
-  equalsTo(id2: CompileIdentifierMetadata): boolean {
-    var rk = this.runtimeCacheKey;
-    var ak = this.assetCacheKey;
-    return (isPresent(rk) && rk == id2.runtimeCacheKey) ||
-        (isPresent(ak) && ak == id2.assetCacheKey);
-  }
 }
 
 export class CompileDiDependencyMetadata {
@@ -198,15 +170,15 @@ export class CompileProviderMetadata {
 export class CompileFactoryMetadata extends CompileIdentifierMetadata {
   diDeps: CompileDiDependencyMetadata[];
 
-  constructor({runtime, name, moduleUrl, prefix, diDeps, value}: {
-    runtime?: Function,
+  constructor({reference, name, moduleUrl, prefix, diDeps, value}: {
+    reference?: Function,
     name?: string,
     prefix?: string,
     moduleUrl?: string,
     value?: boolean,
     diDeps?: CompileDiDependencyMetadata[]
   }) {
-    super({runtime: runtime, name: name, prefix: prefix, moduleUrl: moduleUrl, value: value});
+    super({reference: reference, name: name, prefix: prefix, moduleUrl: moduleUrl, value: value});
     this.diDeps = _normalizeArray(diDeps);
   }
 }
@@ -224,27 +196,12 @@ export class CompileTokenMetadata implements CompileMetadataWithIdentifier {
     this.identifierIsInstance = normalizeBool(identifierIsInstance);
   }
 
-  get runtimeCacheKey(): any {
+  get reference(): any {
     if (isPresent(this.identifier)) {
-      return this.identifier.runtimeCacheKey;
+      return this.identifier.reference;
     } else {
       return this.value;
     }
-  }
-
-  get assetCacheKey(): any {
-    if (isPresent(this.identifier)) {
-      return this.identifier.assetCacheKey;
-    } else {
-      return this.value;
-    }
-  }
-
-  equalsTo(token2: CompileTokenMetadata): boolean {
-    var rk = this.runtimeCacheKey;
-    var ak = this.assetCacheKey;
-    return (isPresent(rk) && rk == token2.runtimeCacheKey) ||
-        (isPresent(ak) && ak == token2.assetCacheKey);
   }
 
   get name(): string {
@@ -253,71 +210,27 @@ export class CompileTokenMetadata implements CompileMetadataWithIdentifier {
 }
 
 /**
- * Note: We only need this in places where we need to support identifiers that
- * don't have a `runtime` value given by the `StaticReflector`. E.g. see the `identifiers`
- * file where we have some identifiers hard coded by name/module path.
- *
- * TODO(tbosch): Eventually, all of these places should go through the static reflector
- * as well, providing them with a valid `StaticSymbol` that is again a singleton.
- */
-export class CompileIdentifierMap<KEY extends CompileMetadataWithIdentifier, VALUE> {
-  private _valueMap = new Map<any, VALUE>();
-  private _values: VALUE[] = [];
-  private _tokens: KEY[] = [];
-
-  add(token: KEY, value: VALUE) {
-    var existing = this.get(token);
-    if (isPresent(existing)) {
-      throw new BaseException(
-          `Cannot overwrite in a CompileIdentifierMap! Token: ${token.identifier.name}`);
-    }
-    this._tokens.push(token);
-    this._values.push(value);
-    var rk = token.runtimeCacheKey;
-    if (isPresent(rk)) {
-      this._valueMap.set(rk, value);
-    }
-    var ak = token.assetCacheKey;
-    if (isPresent(ak)) {
-      this._valueMap.set(ak, value);
-    }
-  }
-  get(token: KEY): VALUE {
-    var rk = token.runtimeCacheKey;
-    var ak = token.assetCacheKey;
-    var result: VALUE;
-    if (isPresent(rk)) {
-      result = this._valueMap.get(rk);
-    }
-    if (isBlank(result) && isPresent(ak)) {
-      result = this._valueMap.get(ak);
-    }
-    return result;
-  }
-  keys(): KEY[] { return this._tokens; }
-  values(): VALUE[] { return this._values; }
-  get size(): number { return this._values.length; }
-}
-
-/**
  * Metadata regarding compilation of a type.
  */
 export class CompileTypeMetadata extends CompileIdentifierMetadata {
   isHost: boolean;
   diDeps: CompileDiDependencyMetadata[];
+  lifecycleHooks: LifecycleHooks[];
 
-  constructor({runtime, name, moduleUrl, prefix, isHost, value, diDeps}: {
-    runtime?: Type,
+  constructor({reference, name, moduleUrl, prefix, isHost, value, diDeps, lifecycleHooks}: {
+    reference?: Type<any>,
     name?: string,
     moduleUrl?: string,
     prefix?: string,
     isHost?: boolean,
     value?: any,
-    diDeps?: CompileDiDependencyMetadata[]
+    diDeps?: CompileDiDependencyMetadata[],
+    lifecycleHooks?: LifecycleHooks[];
   } = {}) {
-    super({runtime: runtime, name: name, moduleUrl: moduleUrl, prefix: prefix, value: value});
+    super({reference: reference, name: name, moduleUrl: moduleUrl, prefix: prefix, value: value});
     this.isHost = normalizeBool(isHost);
     this.diDeps = _normalizeArray(diDeps);
+    this.lifecycleHooks = _normalizeArray(lifecycleHooks);
   }
 }
 
@@ -394,7 +307,7 @@ export class CompileTemplateMetadata {
     this.animations = isPresent(animations) ? ListWrapper.flatten(animations) : [];
     this.ngContentSelectors = isPresent(ngContentSelectors) ? ngContentSelectors : [];
     if (isPresent(interpolation) && interpolation.length != 2) {
-      throw new BaseException(`'interpolation' should have a start and an end symbol.`);
+      throw new Error(`'interpolation' should have a start and an end symbol.`);
     }
     this.interpolation = interpolation;
   }
@@ -405,8 +318,8 @@ export class CompileTemplateMetadata {
  */
 export class CompileDirectiveMetadata implements CompileMetadataWithIdentifier {
   static create(
-      {type, isComponent, selector, exportAs, changeDetection, inputs, outputs, host,
-       lifecycleHooks, providers, viewProviders, queries, viewQueries, entryComponents, template}: {
+      {type, isComponent, selector, exportAs, changeDetection, inputs, outputs, host, providers,
+       viewProviders, queries, viewQueries, entryComponents, template}: {
         type?: CompileTypeMetadata,
         isComponent?: boolean,
         selector?: string,
@@ -415,7 +328,6 @@ export class CompileDirectiveMetadata implements CompileMetadataWithIdentifier {
         inputs?: string[],
         outputs?: string[],
         host?: {[key: string]: string},
-        lifecycleHooks?: LifecycleHooks[],
         providers?:
             Array<CompileProviderMetadata|CompileTypeMetadata|CompileIdentifierMetadata|any[]>,
         viewProviders?:
@@ -423,6 +335,8 @@ export class CompileDirectiveMetadata implements CompileMetadataWithIdentifier {
         queries?: CompileQueryMetadata[],
         viewQueries?: CompileQueryMetadata[],
         entryComponents?: CompileTypeMetadata[],
+        viewDirectives?: CompileTypeMetadata[],
+        viewPipes?: CompileTypeMetadata[],
         template?: CompileTemplateMetadata
       } = {}): CompileDirectiveMetadata {
     var hostListeners: {[key: string]: string} = {};
@@ -430,15 +344,13 @@ export class CompileDirectiveMetadata implements CompileMetadataWithIdentifier {
     var hostAttributes: {[key: string]: string} = {};
     if (isPresent(host)) {
       StringMapWrapper.forEach(host, (value: string, key: string) => {
-        var matches = RegExpWrapper.firstMatch(HOST_REG_EXP, key);
-        if (isBlank(matches)) {
+        const matches = key.match(HOST_REG_EXP);
+        if (matches === null) {
           hostAttributes[key] = value;
         } else if (isPresent(matches[1])) {
           hostProperties[matches[1]] = value;
         } else if (isPresent(matches[2])) {
           hostListeners[matches[2]] = value;
-        } else if (isPresent(matches[3])) {
-          hostProperties[matches[3]] = value;
         }
       });
     }
@@ -465,8 +377,10 @@ export class CompileDirectiveMetadata implements CompileMetadataWithIdentifier {
       type,
       isComponent: normalizeBool(isComponent), selector, exportAs, changeDetection,
       inputs: inputsMap,
-      outputs: outputsMap, hostListeners, hostProperties, hostAttributes,
-      lifecycleHooks: isPresent(lifecycleHooks) ? lifecycleHooks : [],
+      outputs: outputsMap,
+      hostListeners,
+      hostProperties,
+      hostAttributes,
       providers,
       viewProviders,
       queries,
@@ -485,19 +399,19 @@ export class CompileDirectiveMetadata implements CompileMetadataWithIdentifier {
   hostListeners: {[key: string]: string};
   hostProperties: {[key: string]: string};
   hostAttributes: {[key: string]: string};
-  lifecycleHooks: LifecycleHooks[];
   providers: CompileProviderMetadata[];
   viewProviders: CompileProviderMetadata[];
   queries: CompileQueryMetadata[];
   viewQueries: CompileQueryMetadata[];
   // Note: Need to keep types here to prevent cycles!
   entryComponents: CompileTypeMetadata[];
+
   template: CompileTemplateMetadata;
 
   constructor(
       {type, isComponent, selector, exportAs, changeDetection, inputs, outputs, hostListeners,
-       hostProperties, hostAttributes, lifecycleHooks, providers, viewProviders, queries,
-       viewQueries, entryComponents, template}: {
+       hostProperties, hostAttributes, providers, viewProviders, queries, viewQueries,
+       entryComponents, template}: {
         type?: CompileTypeMetadata,
         isComponent?: boolean,
         selector?: string,
@@ -508,7 +422,6 @@ export class CompileDirectiveMetadata implements CompileMetadataWithIdentifier {
         hostListeners?: {[key: string]: string},
         hostProperties?: {[key: string]: string},
         hostAttributes?: {[key: string]: string},
-        lifecycleHooks?: LifecycleHooks[],
         providers?:
             Array<CompileProviderMetadata|CompileTypeMetadata|CompileIdentifierMetadata|any[]>,
         viewProviders?:
@@ -516,6 +429,8 @@ export class CompileDirectiveMetadata implements CompileMetadataWithIdentifier {
         queries?: CompileQueryMetadata[],
         viewQueries?: CompileQueryMetadata[],
         entryComponents?: CompileTypeMetadata[],
+        viewDirectives?: CompileTypeMetadata[],
+        viewPipes?: CompileTypeMetadata[],
         template?: CompileTemplateMetadata,
       } = {}) {
     this.type = type;
@@ -528,24 +443,16 @@ export class CompileDirectiveMetadata implements CompileMetadataWithIdentifier {
     this.hostListeners = hostListeners;
     this.hostProperties = hostProperties;
     this.hostAttributes = hostAttributes;
-    this.lifecycleHooks = _normalizeArray(lifecycleHooks);
     this.providers = _normalizeArray(providers);
     this.viewProviders = _normalizeArray(viewProviders);
     this.queries = _normalizeArray(queries);
     this.viewQueries = _normalizeArray(viewQueries);
     this.entryComponents = _normalizeArray(entryComponents);
+
     this.template = template;
   }
 
   get identifier(): CompileIdentifierMetadata { return this.type; }
-
-  get runtimeCacheKey(): any { return this.type.runtimeCacheKey; }
-
-  get assetCacheKey(): any { return this.type.assetCacheKey; }
-
-  equalsTo(other: CompileMetadataWithIdentifier): boolean {
-    return this.type.equalsTo(other.identifier);
-  }
 }
 
 /**
@@ -556,12 +463,13 @@ export function createHostComponentMeta(compMeta: CompileDirectiveMetadata):
   var template = CssSelector.parse(compMeta.selector)[0].getMatchingElementTemplate();
   return CompileDirectiveMetadata.create({
     type: new CompileTypeMetadata({
-      runtime: Object,
+      reference: Object,
       name: `${compMeta.type.name}_Host`,
       moduleUrl: compMeta.type.moduleUrl,
       isHost: true
     }),
     template: new CompileTemplateMetadata({
+      encapsulation: ViewEncapsulation.None,
       template: template,
       templateUrl: '',
       styles: [],
@@ -573,7 +481,6 @@ export function createHostComponentMeta(compMeta: CompileDirectiveMetadata):
     inputs: [],
     outputs: [],
     host: {},
-    lifecycleHooks: [],
     isComponent: true,
     selector: '*',
     providers: [],
@@ -588,27 +495,17 @@ export class CompilePipeMetadata implements CompileMetadataWithIdentifier {
   type: CompileTypeMetadata;
   name: string;
   pure: boolean;
-  lifecycleHooks: LifecycleHooks[];
 
-  constructor({type, name, pure, lifecycleHooks}: {
+  constructor({type, name, pure}: {
     type?: CompileTypeMetadata,
     name?: string,
     pure?: boolean,
-    lifecycleHooks?: LifecycleHooks[]
   } = {}) {
     this.type = type;
     this.name = name;
     this.pure = normalizeBool(pure);
-    this.lifecycleHooks = _normalizeArray(lifecycleHooks);
   }
   get identifier(): CompileIdentifierMetadata { return this.type; }
-  get runtimeCacheKey(): any { return this.type.runtimeCacheKey; }
-
-  get assetCacheKey(): any { return this.type.assetCacheKey; }
-
-  equalsTo(other: CompileMetadataWithIdentifier): boolean {
-    return this.type.equalsTo(other.identifier);
-  }
 }
 
 /**
@@ -622,17 +519,20 @@ export class CompileNgModuleMetadata implements CompileMetadataWithIdentifier {
   exportedPipes: CompilePipeMetadata[];
   // Note: See CompileDirectiveMetadata.entryComponents why this has to be a type.
   entryComponents: CompileTypeMetadata[];
+  bootstrapComponents: CompileTypeMetadata[];
   providers: CompileProviderMetadata[];
 
   importedModules: CompileNgModuleMetadata[];
   exportedModules: CompileNgModuleMetadata[];
   schemas: SchemaMetadata[];
+  id: string;
 
   transitiveModule: TransitiveCompileNgModuleMetadata;
 
   constructor(
       {type, providers, declaredDirectives, exportedDirectives, declaredPipes, exportedPipes,
-       entryComponents, importedModules, exportedModules, schemas, transitiveModule}: {
+       entryComponents, bootstrapComponents, importedModules, exportedModules, schemas,
+       transitiveModule, id}: {
         type?: CompileTypeMetadata,
         providers?:
             Array<CompileProviderMetadata|CompileTypeMetadata|CompileIdentifierMetadata|any[]>,
@@ -641,10 +541,12 @@ export class CompileNgModuleMetadata implements CompileMetadataWithIdentifier {
         declaredPipes?: CompilePipeMetadata[],
         exportedPipes?: CompilePipeMetadata[],
         entryComponents?: CompileTypeMetadata[],
+        bootstrapComponents?: CompileTypeMetadata[],
         importedModules?: CompileNgModuleMetadata[],
         exportedModules?: CompileNgModuleMetadata[],
         transitiveModule?: TransitiveCompileNgModuleMetadata,
-        schemas?: SchemaMetadata[]
+        schemas?: SchemaMetadata[],
+        id?: string
       } = {}) {
     this.type = type;
     this.declaredDirectives = _normalizeArray(declaredDirectives);
@@ -653,43 +555,38 @@ export class CompileNgModuleMetadata implements CompileMetadataWithIdentifier {
     this.exportedPipes = _normalizeArray(exportedPipes);
     this.providers = _normalizeArray(providers);
     this.entryComponents = _normalizeArray(entryComponents);
+    this.bootstrapComponents = _normalizeArray(bootstrapComponents);
     this.importedModules = _normalizeArray(importedModules);
     this.exportedModules = _normalizeArray(exportedModules);
     this.schemas = _normalizeArray(schemas);
+    this.id = id;
     this.transitiveModule = transitiveModule;
   }
 
   get identifier(): CompileIdentifierMetadata { return this.type; }
-  get runtimeCacheKey(): any { return this.type.runtimeCacheKey; }
-
-  get assetCacheKey(): any { return this.type.assetCacheKey; }
-
-  equalsTo(other: CompileMetadataWithIdentifier): boolean {
-    return this.type.equalsTo(other.identifier);
-  }
 }
 
 export class TransitiveCompileNgModuleMetadata {
-  directivesSet = new Set<Type>();
-  pipesSet = new Set<Type>();
+  directivesSet = new Set<Type<any>>();
+  pipesSet = new Set<Type<any>>();
   constructor(
       public modules: CompileNgModuleMetadata[], public providers: CompileProviderMetadata[],
       public entryComponents: CompileTypeMetadata[], public directives: CompileDirectiveMetadata[],
       public pipes: CompilePipeMetadata[]) {
-    directives.forEach(dir => this.directivesSet.add(dir.type.runtime));
-    pipes.forEach(pipe => this.pipesSet.add(pipe.type.runtime));
+    directives.forEach(dir => this.directivesSet.add(dir.type.reference));
+    pipes.forEach(pipe => this.pipesSet.add(pipe.type.reference));
   }
 }
 
 export function removeIdentifierDuplicates<T extends CompileMetadataWithIdentifier>(items: T[]):
     T[] {
-  const map = new CompileIdentifierMap<T, T>();
+  const map = new Map<any, T>();
   items.forEach((item) => {
-    if (!map.get(item)) {
-      map.add(item, item);
+    if (!map.get(item.identifier.reference)) {
+      map.set(item.identifier.reference, item);
     }
   });
-  return map.keys();
+  return MapWrapper.values(map);
 }
 
 function _normalizeArray(obj: any[]): any[] {
@@ -703,4 +600,31 @@ export function isStaticSymbol(value: any): value is StaticSymbol {
 export interface StaticSymbol {
   name: string;
   filePath: string;
+}
+
+export class ProviderMeta {
+  token: any;
+  useClass: Type<any>;
+  useValue: any;
+  useExisting: any;
+  useFactory: Function;
+  dependencies: Object[];
+  multi: boolean;
+
+  constructor(token: any, {useClass, useValue, useExisting, useFactory, deps, multi}: {
+    useClass?: Type<any>,
+    useValue?: any,
+    useExisting?: any,
+    useFactory?: Function,
+    deps?: Object[],
+    multi?: boolean
+  }) {
+    this.token = token;
+    this.useClass = useClass;
+    this.useValue = useValue;
+    this.useExisting = useExisting;
+    this.useFactory = useFactory;
+    this.dependencies = deps;
+    this.multi = !!multi;
+  }
 }

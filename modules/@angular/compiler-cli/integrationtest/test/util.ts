@@ -8,13 +8,21 @@
 
 import {NgModuleFactory, NgModuleRef} from '@angular/core';
 import {ComponentFixture} from '@angular/core/testing';
-import {serverPlatform} from '@angular/platform-server';
+import {platformServer} from '@angular/platform-server';
 
 import {MainModule} from '../src/module';
 import {MainModuleNgFactory} from '../src/module.ngfactory';
 
+let mainModuleRef: NgModuleRef<MainModule> = null;
+beforeEach((done) => {
+  platformServer().bootstrapModuleFactory(MainModuleNgFactory).then((moduleRef: any) => {
+    mainModuleRef = moduleRef;
+    done();
+  });
+});
+
 export function createModule(): NgModuleRef<MainModule> {
-  return serverPlatform().bootstrapModuleFactory(MainModuleNgFactory);
+  return mainModuleRef;
 }
 
 export function createComponent<C>(comp: {new (...args: any[]): C}): ComponentFixture<C> {

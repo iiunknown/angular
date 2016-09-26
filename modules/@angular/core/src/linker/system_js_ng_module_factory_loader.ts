@@ -8,7 +8,6 @@
 
 
 import {Injectable, Optional} from '../di';
-import {global} from '../facade/lang';
 
 import {Compiler} from './compiler';
 import {NgModuleFactory} from './ng_module_factory';
@@ -16,8 +15,30 @@ import {NgModuleFactoryLoader} from './ng_module_factory_loader';
 
 const _SEPARATOR = '#';
 
-const FACTORY_MODULE_SUFFIX = '.ngfactory';
 const FACTORY_CLASS_SUFFIX = 'NgFactory';
+
+/**
+ * Configuration for SystemJsNgModuleLoader.
+ * token.
+ *
+ * @experimental
+ */
+export abstract class SystemJsNgModuleLoaderConfig {
+  /**
+   * Prefix to add when computing the name of the factory module for a given module name.
+   */
+  factoryPathPrefix: string;
+
+  /**
+   * Suffix to add when computing the name of the factory module for a given module name.
+   */
+  factoryPathSuffix: string;
+}
+
+const DEFAULT_CONFIG: SystemJsNgModuleLoaderConfig = {
+  factoryPathPrefix: '',
+  factoryPathSuffix: '.ngfactory',
+};
 
 /**
  * NgModuleFactoryLoader that uses SystemJS to load NgModuleFactory
@@ -25,7 +46,11 @@ const FACTORY_CLASS_SUFFIX = 'NgFactory';
  */
 @Injectable()
 export class SystemJsNgModuleLoader implements NgModuleFactoryLoader {
-  constructor(private _compiler: Compiler) {}
+  private _config: SystemJsNgModuleLoaderConfig;
+
+  constructor(private _compiler: Compiler, @Optional() config?: SystemJsNgModuleLoaderConfig) {
+    this._config = config || DEFAULT_CONFIG;
+  }
 
   load(path: string): Promise<NgModuleFactory<any>> {
     const offlineMode = this._compiler instanceof Compiler;
@@ -36,8 +61,7 @@ export class SystemJsNgModuleLoader implements NgModuleFactoryLoader {
     let [module, exportName] = path.split(_SEPARATOR);
     if (exportName === undefined) exportName = 'default';
 
-    return (<any>global)
-        .System.import(module)
+    return System.import(module)
         .then((module: any) => module[exportName])
         .then((type: any) => checkNotEmpty(type, module, exportName))
         .then((type: any) => this._compiler.compileModuleAsync(type));
@@ -45,11 +69,14 @@ export class SystemJsNgModuleLoader implements NgModuleFactoryLoader {
 
   private loadFactory(path: string): Promise<NgModuleFactory<any>> {
     let [module, exportName] = path.split(_SEPARATOR);
-    if (exportName === undefined) exportName = 'default';
+    let factoryClassSuffix = FACTORY_CLASS_SUFFIX;
+    if (exportName === undefined) {
+      exportName = 'default';
+      factoryClassSuffix = '';
+    }
 
-    return (<any>global)
-        .System.import(module + FACTORY_MODULE_SUFFIX)
-        .then((module: any) => module[exportName + FACTORY_CLASS_SUFFIX])
+    return System.import(this._config.factoryPathPrefix + module + this._config.factoryPathSuffix)
+        .then((module: any) => module[exportName + factoryClassSuffix])
         .then((factory: any) => checkNotEmpty(factory, module, exportName));
   }
 }

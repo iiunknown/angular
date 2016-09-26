@@ -6,18 +6,18 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {beforeEach, ddescribe, describe, iit, inject, it, xit,} from '@angular/core/testing/testing_internal';
+import {interpretStatements} from '@angular/compiler/src/output/output_interpreter';
+import {jitStatements} from '@angular/compiler/src/output/output_jit';
+import {EventEmitter} from '@angular/core';
+import {ViewType} from '@angular/core/src/linker/view_type';
+import {beforeEach, ddescribe, describe, iit, inject, it, xit} from '@angular/core/testing/testing_internal';
+import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
+import {browserDetection} from '@angular/platform-browser/testing/browser_util';
 import {expect} from '@angular/platform-browser/testing/matchers';
 
 import * as typed from './output_emitter_codegen_typed';
 import * as untyped from './output_emitter_codegen_untyped';
-import {jitStatements} from '@angular/compiler/src/output/output_jit';
-import {interpretStatements} from '@angular/compiler/src/output/output_interpreter';
-import {codegenStmts, ExternalClass} from './output_emitter_util';
-import {BaseException, EventEmitter} from '@angular/core';
-import {ViewType} from '@angular/core/src/linker/view_type';
-import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
-import {browserDetection} from '@angular/platform-browser/testing/browser_util';
+import {ExternalClass, codegenStmts} from './output_emitter_util';
 
 export function main() {
   var outputDefs: any[] /** TODO #9100 */ = [];
@@ -30,7 +30,7 @@ export function main() {
     // Our generator only works on node.js
     outputDefs.push({'getExpressions': () => typed.getExpressions, 'name': 'typed'});
   } else {
-    // Our generator only works on node.js and Dart...
+    // Our generator only works on node.js
     if (!getDOM().supportsDOMEvents()) {
       outputDefs.push({'getExpressions': () => untyped.getExpressions, 'name': 'untyped'});
     }
@@ -179,7 +179,7 @@ export function main() {
            () => { expect(expressions['throwError']).toThrowError('someError'); });
 
         it('should support catching errors', () => {
-          function someOperation() { throw new BaseException('Boom!'); }
+          function someOperation() { throw new Error('Boom!'); }
 
           var errorAndStack = expressions['catchError'](someOperation);
           expect(errorAndStack[0].message).toEqual('Boom!');

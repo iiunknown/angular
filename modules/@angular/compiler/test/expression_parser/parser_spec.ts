@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AST, ASTWithSource, BindingPipe, Interpolation, LiteralPrimitive, ParserError, TemplateBinding} from '@angular/compiler/src/expression_parser/ast';
+import {ASTWithSource, BindingPipe, Interpolation, ParserError, TemplateBinding} from '@angular/compiler/src/expression_parser/ast';
 import {Lexer} from '@angular/compiler/src/expression_parser/lexer';
 import {Parser, TemplateBindingParseResult} from '@angular/compiler/src/expression_parser/parser';
 import {expect} from '@angular/platform-browser/testing/matchers';
@@ -92,6 +92,8 @@ export function main() {
 
       it('should parse null', () => { checkAction('null'); });
 
+      it('should parse undefined', () => { checkAction('undefined'); });
+
       it('should parse unary - expressions', () => {
         checkAction('-1', '0 - 1');
         checkAction('+1', '1');
@@ -163,6 +165,7 @@ export function main() {
       describe('member access', () => {
         it('should parse field access', () => {
           checkAction('a');
+          checkAction('this.a', 'a');
           checkAction('a.a');
         });
 
@@ -384,22 +387,6 @@ export function main() {
       it('should store the passed-in location', () => {
         var bindings = parseTemplateBindings('a 1,b 2', 'location');
         expect(bindings[0].expression.location).toEqual('location');
-      });
-
-      it('should support var notation with a deprecation warning', () => {
-        var bindings = createParser().parseTemplateBindings('var i', null);
-        expect(keyValues(bindings.templateBindings)).toEqual(['let i=\$implicit']);
-        expect(bindings.warnings).toEqual([
-          '"var" inside of expressions is deprecated. Use "let" instead!'
-        ]);
-      });
-
-      it('should support # notation with a deprecation warning', () => {
-        var bindings = createParser().parseTemplateBindings('#i', null);
-        expect(keyValues(bindings.templateBindings)).toEqual(['let i=\$implicit']);
-        expect(bindings.warnings).toEqual([
-          '"#" inside of expressions is deprecated. Use "let" instead!'
-        ]);
       });
 
       it('should support let notation', () => {

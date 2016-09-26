@@ -7,15 +7,15 @@
  */
 
 import {CommonModule, PlatformLocation} from '@angular/common';
-import {ApplicationModule, ExceptionHandler, NgModule, NgModuleFactory, NgModuleRef, NgZone, OpaqueToken, PLATFORM_COMMON_PROVIDERS, PLATFORM_INITIALIZER, PlatformRef, ReflectiveInjector, RootRenderer, SanitizationService, Testability, assertPlatform, createPlatform, createPlatformFactory, getPlatform, isDevMode, platformCore} from '@angular/core';
+import {ApplicationModule, ClassProvider, ErrorHandler, ExistingProvider, FactoryProvider, NgModule, Optional, PLATFORM_INITIALIZER, PlatformRef, Provider, RootRenderer, Sanitizer, SkipSelf, Testability, TypeProvider, ValueProvider, createPlatformFactory, platformCore} from '@angular/core';
 
-import {wtfInit} from '../core_private';
 import {AnimationDriver} from '../src/dom/animation_driver';
 import {WebAnimationsDriver} from '../src/dom/web_animations_driver';
 
 import {BrowserDomAdapter} from './browser/browser_adapter';
 import {BrowserPlatformLocation} from './browser/location/browser_platform_location';
 import {BrowserGetTestability} from './browser/testability';
+import {Title} from './browser/title';
 import {ELEMENT_PROBE_PROVIDERS} from './dom/debug/ng_probe';
 import {getDOM} from './dom/dom_adapter';
 import {DomRootRenderer, DomRootRenderer_} from './dom/dom_renderer';
@@ -25,24 +25,12 @@ import {EVENT_MANAGER_PLUGINS, EventManager} from './dom/events/event_manager';
 import {HAMMER_GESTURE_CONFIG, HammerGestureConfig, HammerGesturesPlugin} from './dom/events/hammer_gestures';
 import {KeyEventsPlugin} from './dom/events/key_events';
 import {DomSharedStylesHost, SharedStylesHost} from './dom/shared_styles_host';
-import {isBlank} from './facade/lang';
-import {DomSanitizationService, DomSanitizationServiceImpl} from './security/dom_sanitization_service';
+import {DomSanitizer, DomSanitizerImpl} from './security/dom_sanitization_service';
 
-export const INTERNAL_BROWSER_PLATFORM_PROVIDERS: Array<any /*Type | Provider | any[]*/> = [
+export const INTERNAL_BROWSER_PLATFORM_PROVIDERS: Provider[] = [
   {provide: PLATFORM_INITIALIZER, useValue: initDomAdapter, multi: true},
   {provide: PlatformLocation, useClass: BrowserPlatformLocation}
 ];
-
-/**
- * A set of providers to initialize the Angular platform in a web browser.
- *
- * Used automatically by `bootstrap`, or can be passed to `platform`.
- *
- * @deprecated Use `platformBrowser()` or create a custom platform factory via
- * `createPlatformFactory(platformBrowser, ...)`
- */
-export const BROWSER_PLATFORM_PROVIDERS: Array<any /*Type | Provider | any[]*/> =
-    [PLATFORM_COMMON_PROVIDERS, INTERNAL_BROWSER_PLATFORM_PROVIDERS];
 
 /**
  * @security Replacing built-in sanitization providers exposes the application to XSS risks.
@@ -51,42 +39,23 @@ export const BROWSER_PLATFORM_PROVIDERS: Array<any /*Type | Provider | any[]*/> 
  * @experimental
  */
 export const BROWSER_SANITIZATION_PROVIDERS: Array<any> = [
-  {provide: SanitizationService, useExisting: DomSanitizationService},
-  {provide: DomSanitizationService, useClass: DomSanitizationServiceImpl},
+  {provide: Sanitizer, useExisting: DomSanitizer},
+  {provide: DomSanitizer, useClass: DomSanitizerImpl},
 ];
 
 /**
- * A set of providers to initialize an Angular application in a web browser.
- *
- * Used automatically by `bootstrap`, or can be passed to {@link PlatformRef
- * PlatformRef.application}.
- *
- * @deprecated Create a module that includes `BrowserModule` instead. This is empty for backwards
- * compatibility,
- * as all of our bootstrap methods add a module implicitly, i.e. keeping this filled would add the
- * providers 2x.
- */
-export const BROWSER_APP_PROVIDERS: Array<any /*Type | Provider | any[]*/> = [];
-
-/**
- * @experimental API related to bootstrapping are still under review.
+ * @stable
  */
 export const platformBrowser =
     createPlatformFactory(platformCore, 'browser', INTERNAL_BROWSER_PLATFORM_PROVIDERS);
 
-/**
- * @deprecated Use {@link platformBrowser} instead
- */
-export const browserPlatform = platformBrowser;
-
 export function initDomAdapter() {
   BrowserDomAdapter.makeCurrent();
-  wtfInit();
   BrowserGetTestability.init();
 }
 
-export function _exceptionHandler(): ExceptionHandler {
-  return new ExceptionHandler(getDOM());
+export function errorHandler(): ErrorHandler {
+  return new ErrorHandler();
 }
 
 export function _document(): any {
@@ -103,12 +72,11 @@ export function _resolveDefaultAnimationDriver(): AnimationDriver {
 /**
  * The ng module for the browser.
  *
- * @experimental
+ * @stable
  */
 @NgModule({
   providers: [
-    BROWSER_SANITIZATION_PROVIDERS,
-    {provide: ExceptionHandler, useFactory: _exceptionHandler, deps: []},
+    BROWSER_SANITIZATION_PROVIDERS, {provide: ErrorHandler, useFactory: errorHandler, deps: []},
     {provide: DOCUMENT, useFactory: _document, deps: []},
     {provide: EVENT_MANAGER_PLUGINS, useClass: DomEventsPlugin, multi: true},
     {provide: EVENT_MANAGER_PLUGINS, useClass: KeyEventsPlugin, multi: true},
@@ -118,9 +86,15 @@ export function _resolveDefaultAnimationDriver(): AnimationDriver {
     {provide: RootRenderer, useExisting: DomRootRenderer},
     {provide: SharedStylesHost, useExisting: DomSharedStylesHost},
     {provide: AnimationDriver, useFactory: _resolveDefaultAnimationDriver}, DomSharedStylesHost,
-    Testability, EventManager, ELEMENT_PROBE_PROVIDERS
+    Testability, EventManager, ELEMENT_PROBE_PROVIDERS, Title
   ],
   exports: [CommonModule, ApplicationModule]
 })
 export class BrowserModule {
+  constructor(@Optional() @SkipSelf() parentModule: BrowserModule) {
+    if (parentModule) {
+      throw new Error(
+          `BrowserModule has already been loaded. If you need access to common directives such as NgIf and NgFor from a lazy loaded module, import CommonModule instead.`);
+    }
+  }
 }

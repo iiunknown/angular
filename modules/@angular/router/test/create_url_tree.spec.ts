@@ -42,10 +42,22 @@ describe('createUrlTree', () => {
     expect(params[1].path).toEqual('11');
   });
 
+  it('should support first segments contaings slashes', () => {
+    const p = serializer.parse('/');
+    const t = createRoot(p, [{segmentPath: '/one'}, 'two/three']);
+    expect(serializer.serialize(t)).toEqual('/%2Fone/two%2Fthree');
+  });
+
   it('should preserve secondary segments', () => {
     const p = serializer.parse('/a/11/b(right:c)');
     const t = createRoot(p, ['/a', 11, 'd']);
     expect(serializer.serialize(t)).toEqual('/a/11/d(right:c)');
+  });
+
+  it('should support updating secondary segments (absolute)', () => {
+    const p = serializer.parse('/a(right:b)');
+    const t = createRoot(p, ['/', {outlets: {right: ['c']}}]);
+    expect(serializer.serialize(t)).toEqual('/a(right:c)');
   });
 
   it('should support updating secondary segments', () => {
@@ -58,6 +70,12 @@ describe('createUrlTree', () => {
     const p = serializer.parse('/a/(b//right:c)');
     const t = createRoot(p, ['a', {outlets: {right: ['d', 11, 'e']}}]);
     expect(serializer.serialize(t)).toEqual('/a/(b//right:d/11/e)');
+  });
+
+  it('should throw when outlets is not the last command', () => {
+    const p = serializer.parse('/a');
+    expect(() => createRoot(p, ['a', {outlets: {right: ['c']}}, 'c']))
+        .toThrowError('{outlets:{}} has to be the last command');
   });
 
   it('should support updating using a string', () => {
@@ -98,7 +116,7 @@ describe('createUrlTree', () => {
 
   it('should create matrix parameters together with other segments', () => {
     const p = serializer.parse('/a');
-    const t = createRoot(p, ['/a', '/b', {aa: 22, bb: 33}]);
+    const t = createRoot(p, ['/a', 'b', {aa: 22, bb: 33}]);
     expect(serializer.serialize(t)).toEqual('/a/b;aa=22;bb=33');
   });
 
@@ -121,10 +139,23 @@ describe('createUrlTree', () => {
       expect(serializer.serialize(t)).toEqual('/a/(c2//left:cp)(left:ap)');
     });
 
-    it('should work when given params', () => {
+    it('should support parameters-only navigation', () => {
+      const p = serializer.parse('/a');
+      const t = create(p.root.children[PRIMARY_OUTLET], 0, p, [{k: 99}]);
+      expect(serializer.serialize(t)).toEqual('/a;k=99');
+    });
+
+    it('should support parameters-only navigation (nested case)', () => {
       const p = serializer.parse('/a/(c//left:cp)(left:ap)');
       const t = create(p.root.children[PRIMARY_OUTLET], 0, p, [{'x': 99}]);
-      expect(serializer.serialize(t)).toEqual('/a/(c;x=99//left:cp)(left:ap)');
+      expect(serializer.serialize(t)).toEqual('/a;x=99(left:ap)');
+    });
+
+    it('should support parameters-only navigation (with a double dot)', () => {
+      const p = serializer.parse('/a/(c//left:cp)(left:ap)');
+      const t =
+          create(p.root.children[PRIMARY_OUTLET].children[PRIMARY_OUTLET], 0, p, ['../', {x: 5}]);
+      expect(serializer.serialize(t)).toEqual('/a;x=5(left:ap)');
     });
 
     it('should work when index > 0', () => {
@@ -139,13 +170,7 @@ describe('createUrlTree', () => {
       expect(serializer.serialize(t)).toEqual('/a/c2');
     });
 
-    it('should support setting matrix params', () => {
-      const p = serializer.parse('/a/(c//left:cp)(left:ap)');
-      const t = create(p.root.children[PRIMARY_OUTLET], 0, p, ['../', {x: 5}]);
-      expect(serializer.serialize(t)).toEqual('/a;x=5(left:ap)');
-    });
-
-    xit('should support going to a parent (across segments)', () => {
+    it('should support going to a parent (across segments)', () => {
       const p = serializer.parse('/q/(a/(c//left:cp)//left:qp)(left:ap)');
 
       const t =
@@ -176,6 +201,12 @@ describe('createUrlTree', () => {
       expect(() => create(p.root.children[PRIMARY_OUTLET], 0, p, ['../../']))
           .toThrowError('Invalid number of \'../\'');
     });
+
+    it('should support updating secondary segments', () => {
+      const p = serializer.parse('/a/b');
+      const t = create(p.root.children[PRIMARY_OUTLET], 1, p, [{outlets: {right: ['c']}}]);
+      expect(serializer.serialize(t)).toEqual('/a/b/(right:c)');
+    });
   });
 
   it('should set query params', () => {
@@ -197,13 +228,13 @@ describe('createUrlTree', () => {
   });
 });
 
-
 function createRoot(tree: UrlTree, commands: any[], queryParams?: Params, fragment?: string) {
   const s = new ActivatedRouteSnapshot(
-      [], <any>{}, <any>{}, PRIMARY_OUTLET, 'someComponent', null, tree.root, -1, <any>null);
+      [], <any>{}, <any>{}, '', <any>{}, PRIMARY_OUTLET, 'someComponent', null, tree.root, -1,
+      <any>null);
   const a = new ActivatedRoute(
       new BehaviorSubject(null), new BehaviorSubject(null), new BehaviorSubject(null),
-      PRIMARY_OUTLET, 'someComponent', s);
+      new BehaviorSubject(null), new BehaviorSubject(null), PRIMARY_OUTLET, 'someComponent', s);
   advanceActivatedRoute(a);
   return createUrlTree(a, tree, commands, queryParams, fragment);
 }
@@ -215,11 +246,11 @@ function create(
     expect(segment).toBeDefined();
   }
   const s = new ActivatedRouteSnapshot(
-      [], <any>{}, <any>{}, PRIMARY_OUTLET, 'someComponent', null, <any>segment, startIndex,
-      <any>null);
+      [], <any>{}, <any>{}, '', <any>{}, PRIMARY_OUTLET, 'someComponent', null, <any>segment,
+      startIndex, <any>null);
   const a = new ActivatedRoute(
       new BehaviorSubject(null), new BehaviorSubject(null), new BehaviorSubject(null),
-      PRIMARY_OUTLET, 'someComponent', s);
+      new BehaviorSubject(null), new BehaviorSubject(null), PRIMARY_OUTLET, 'someComponent', s);
   advanceActivatedRoute(a);
   return createUrlTree(a, tree, commands, queryParams, fragment);
 }

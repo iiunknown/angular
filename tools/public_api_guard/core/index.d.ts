@@ -1,11 +1,4 @@
 /** @stable */
-export declare class AbstractProviderError extends BaseException {
-    context: any;
-    constructor(injector: ReflectiveInjector, key: ReflectiveKey, constructResolvingMessage: Function);
-    addKey(injector: ReflectiveInjector, key: ReflectiveKey): void;
-}
-
-/** @stable */
 export declare abstract class AfterContentChecked {
     abstract ngAfterContentChecked(): void;
 }
@@ -69,7 +62,8 @@ export declare abstract class AnimationPlayer {
     abstract getPosition(): number;
     abstract hasStarted(): boolean;
     abstract init(): void;
-    abstract onDone(fn: Function): void;
+    abstract onDone(fn: () => void): void;
+    abstract onStart(fn: () => void): void;
     abstract pause(): void;
     abstract play(): void;
     abstract reset(): void;
@@ -113,10 +107,25 @@ export declare class AnimationStyleMetadata extends AnimationMetadata {
 }
 
 /** @experimental */
+export declare class AnimationTransitionEvent {
+    fromState: string;
+    toState: string;
+    totalTime: number;
+    constructor({fromState, toState, totalTime}: {
+        fromState: string;
+        toState: string;
+        totalTime: number;
+    });
+}
+
+/** @experimental */
 export declare abstract class AnimationWithStepsMetadata extends AnimationMetadata {
     steps: AnimationMetadata[];
     constructor();
 }
+
+/** @experimental */
+export declare const APP_BOOTSTRAP_LISTENER: OpaqueToken;
 
 /** @experimental */
 export declare const APP_ID: any;
@@ -124,27 +133,23 @@ export declare const APP_ID: any;
 /** @experimental */
 export declare const APP_INITIALIZER: any;
 
-/** @deprecated */
-export declare const APPLICATION_COMMON_PROVIDERS: Array<Type | {
-    [k: string]: any;
-} | any[]>;
+/** @experimental */
+export declare class ApplicationInitStatus {
+    done: boolean;
+    donePromise: Promise<any>;
+    constructor(appInits: (() => any)[]);
+}
 
 /** @experimental */
 export declare class ApplicationModule {
 }
 
-/** @experimental */
+/** @stable */
 export declare abstract class ApplicationRef {
-    componentTypes: Type[];
-    injector: Injector;
-    zone: NgZone;
-    abstract bootstrap<C>(componentFactory: ComponentFactory<C> | ConcreteType<C>): ComponentRef<C>;
-    abstract dispose(): void;
-    abstract registerBootstrapListener(listener: (ref: ComponentRef<any>) => void): void;
-    abstract registerDisposeListener(dispose: () => void): void;
-    abstract run(callback: Function): any;
+    componentTypes: Type<any>[];
+    components: ComponentRef<any>[];
+    abstract bootstrap<C>(componentFactory: ComponentFactory<C> | Type<C>): ComponentRef<C>;
     abstract tick(): void;
-    abstract waitForAsyncInitializers(): Promise<any>;
 }
 
 /** @experimental */
@@ -154,51 +159,10 @@ export declare function asNativeElements(debugEls: DebugElement[]): any;
 export declare function assertPlatform(requiredToken: any): PlatformRef;
 
 /** @stable */
-export declare var Attribute: AttributeMetadataFactory;
-
-/** @stable */
-export declare class AttributeMetadata extends DependencyMetadata {
-    attributeName: string;
-    token: AttributeMetadata;
-    constructor(attributeName: string);
-    toString(): string;
-}
-
-/** @stable */
-export interface AttributeMetadataFactory {
-    (name: string): TypeDecorator;
-    new (name: string): AttributeMetadata;
-}
+export declare const Attribute: AttributeDecorator;
 
 /** @experimental */
 export declare const AUTO_STYLE: string;
-
-/** @stable */
-export declare class BaseException extends Error {
-    message: string;
-    stack: any;
-    constructor(message?: string);
-    toString(): string;
-}
-
-/** @deprecated */
-export declare function bind(token: any): ProviderBuilder;
-
-/** @deprecated */
-export declare class Binding extends Provider {
-    /** @deprecated */ toAlias: any;
-    /** @deprecated */ toClass: Type;
-    /** @deprecated */ toFactory: Function;
-    /** @deprecated */ toValue: any;
-    constructor(token: any, {toClass, toValue, toAlias, toFactory, deps, multi}: {
-        toClass?: Type;
-        toValue?: any;
-        toAlias?: any;
-        toFactory: Function;
-        deps?: Object[];
-        multi?: boolean;
-    });
-}
 
 /** @stable */
 export declare enum ChangeDetectionStrategy {
@@ -216,13 +180,20 @@ export declare abstract class ChangeDetectorRef {
 }
 
 /** @stable */
-export declare function Class(clsDef: ClassDefinition): ConcreteType<any>;
+export declare function Class(clsDef: ClassDefinition): Type<any>;
 
 /** @stable */
 export interface ClassDefinition {
     constructor: Function | any[];
-    extends?: Type;
-    [x: string]: Type | Function | any[];
+    extends?: Type<any>;
+    [x: string]: Type<any> | Function | any[];
+}
+
+/** @stable */
+export interface ClassProvider {
+    multi?: boolean;
+    provide: any;
+    useClass: Type<any>;
 }
 
 /** @stable */
@@ -237,14 +208,16 @@ export declare class CollectionChangeRecord {
 
 /** @stable */
 export declare class Compiler {
-    _injector: Injector;
     clearCache(): void;
-    clearCacheFor(type: Type): void;
-    compileComponentAsync<T>(component: ConcreteType<T>, ngModule?: Type): Promise<ComponentFactory<T>>;
-    compileComponentSync<T>(component: ConcreteType<T>, ngModule?: Type): ComponentFactory<T>;
-    compileModuleAsync<T>(moduleType: ConcreteType<T>): Promise<NgModuleFactory<T>>;
-    compileModuleSync<T>(moduleType: ConcreteType<T>): NgModuleFactory<T>;
+    clearCacheFor(type: Type<any>): void;
+    compileModuleAndAllComponentsAsync<T>(moduleType: Type<T>): Promise<ModuleWithComponentFactories<T>>;
+    compileModuleAndAllComponentsSync<T>(moduleType: Type<T>): ModuleWithComponentFactories<T>;
+    compileModuleAsync<T>(moduleType: Type<T>): Promise<NgModuleFactory<T>>;
+    compileModuleSync<T>(moduleType: Type<T>): NgModuleFactory<T>;
 }
+
+/** @experimental */
+export declare const COMPILER_OPTIONS: OpaqueToken;
 
 /** @experimental */
 export declare abstract class CompilerFactory {
@@ -252,148 +225,40 @@ export declare abstract class CompilerFactory {
 }
 
 /** @experimental */
-export declare const CompilerOptions: OpaqueToken;
+export declare type CompilerOptions = {
+    useDebug?: boolean;
+    useJit?: boolean;
+    defaultEncapsulation?: ViewEncapsulation;
+    providers?: any[];
+};
 
 /** @stable */
-export declare var Component: ComponentMetadataFactory;
+export declare const Component: ComponentDecorator;
 
 /** @stable */
-export interface ComponentDecorator extends TypeDecorator {
-    View(obj: {
-        templateUrl?: string;
-        template?: string;
-        directives?: Array<Type | any[]>;
-        pipes?: Array<Type | any[]>;
-        renderer?: string;
-        styles?: string[];
-        styleUrls?: string[];
-        animations?: AnimationEntryMetadata[];
-        interpolation?: [string, string];
-    }): ViewDecorator;
+export interface ComponentDecorator {
+    /** @stable */ (obj: Component): TypeDecorator;
+    new (obj: Component): Component;
 }
 
 /** @stable */
 export declare class ComponentFactory<C> {
-    componentType: Type;
+    componentType: Type<any>;
     selector: string;
-    constructor(selector: string, _viewFactory: Function, _componentType: Type);
+    constructor(selector: string, _viewFactory: Function, _componentType: Type<any>);
     create(injector: Injector, projectableNodes?: any[][], rootSelectorOrNode?: string | any): ComponentRef<C>;
 }
 
 /** @stable */
 export declare abstract class ComponentFactoryResolver {
-    abstract resolveComponentFactory<T>(component: ConcreteType<T>): ComponentFactory<T>;
+    abstract resolveComponentFactory<T>(component: Type<T>): ComponentFactory<T>;
     static NULL: ComponentFactoryResolver;
-}
-
-/** @stable */
-export declare class ComponentMetadata extends DirectiveMetadata {
-    animations: AnimationEntryMetadata[];
-    changeDetection: ChangeDetectionStrategy;
-    directives: Array<Type | any[]>;
-    encapsulation: ViewEncapsulation;
-    entryComponents: Array<Type | any[]>;
-    interpolation: [string, string];
-    moduleId: string;
-    pipes: Array<Type | any[]>;
-    styleUrls: string[];
-    styles: string[];
-    template: string;
-    templateUrl: string;
-    viewProviders: any[];
-    constructor({selector, inputs, outputs, properties, events, host, exportAs, moduleId, providers, viewProviders, changeDetection, queries, templateUrl, template, styleUrls, styles, animations, directives, pipes, encapsulation, interpolation, precompile, entryComponents}?: {
-        selector?: string;
-        inputs?: string[];
-        outputs?: string[]; properties?: string[]; events?: string[];
-        host?: {
-            [key: string]: string;
-        };
-        providers?: any[];
-        exportAs?: string;
-        moduleId?: string;
-        viewProviders?: any[];
-        queries?: {
-            [key: string]: any;
-        };
-        changeDetection?: ChangeDetectionStrategy;
-        templateUrl?: string;
-        template?: string;
-        styleUrls?: string[];
-        styles?: string[];
-        animations?: AnimationEntryMetadata[];
-        directives?: Array<Type | any[]>;
-        pipes?: Array<Type | any[]>;
-        encapsulation?: ViewEncapsulation;
-        interpolation?: [string, string];
-        precompile?: Array<Type | any[]>;
-        entryComponents?: Array<Type | any[]>;
-    });
-}
-
-/** @stable */
-export interface ComponentMetadataFactory {
-    (obj: {
-        selector?: string;
-        inputs?: string[];
-        outputs?: string[];
-        properties?: string[];
-        events?: string[];
-        host?: {
-            [key: string]: string;
-        };
-        providers?: any[];
-        exportAs?: string;
-        moduleId?: string;
-        queries?: {
-            [key: string]: any;
-        };
-        viewProviders?: any[];
-        changeDetection?: ChangeDetectionStrategy;
-        templateUrl?: string;
-        template?: string;
-        styleUrls?: string[];
-        styles?: string[];
-        animations?: AnimationEntryMetadata[];
-        directives?: Array<Type | any[]>;
-        pipes?: Array<Type | any[]>;
-        encapsulation?: ViewEncapsulation;
-        interpolation?: [string, string];
-        entryComponents?: Array<Type | any[]>;
-    }): ComponentDecorator;
-    new (obj: {
-        selector?: string;
-        inputs?: string[];
-        outputs?: string[];
-        properties?: string[];
-        events?: string[];
-        host?: {
-            [key: string]: string;
-        };
-        providers?: any[];
-        exportAs?: string;
-        moduleId?: string;
-        queries?: {
-            [key: string]: any;
-        };
-        viewProviders?: any[];
-        changeDetection?: ChangeDetectionStrategy;
-        templateUrl?: string;
-        template?: string;
-        styleUrls?: string[];
-        styles?: string[];
-        animations?: AnimationEntryMetadata[];
-        directives?: Array<Type | any[]>;
-        pipes?: Array<Type | any[]>;
-        encapsulation?: ViewEncapsulation;
-        interpolation?: [string, string];
-        entryComponents?: Array<Type | any[]>;
-    }): ComponentMetadata;
 }
 
 /** @stable */
 export declare abstract class ComponentRef<C> {
     changeDetectorRef: ChangeDetectorRef;
-    componentType: Type;
+    componentType: Type<any>;
     hostView: ViewRef;
     injector: Injector;
     instance: C;
@@ -402,82 +267,42 @@ export declare abstract class ComponentRef<C> {
     abstract onDestroy(callback: Function): void;
 }
 
-/** @deprecated */
-export declare abstract class ComponentResolver {
-    abstract clearCache(): void;
-    abstract resolveComponent(component: Type | string): Promise<ComponentFactory<any>>;
-    static DynamicCompilationDeprecationMsg: string;
-    static LazyLoadingDeprecationMsg: string;
-}
+/** @stable */
+export declare const ContentChild: ContentChildDecorator;
 
 /** @stable */
-export declare class ComponentStillLoadingError extends BaseException {
-    compType: Type;
-    constructor(compType: Type);
-}
-
-/** @stable */
-export declare var ContentChild: ContentChildMetadataFactory;
-
-/** @stable */
-export declare class ContentChildMetadata extends QueryMetadata {
-    constructor(_selector: Type | string, {read}?: {
-        read?: any;
-    });
-}
-
-/** @stable */
-export interface ContentChildMetadataFactory {
-    (selector: Type | string, {read}?: {
+export interface ContentChildDecorator {
+    (selector: Type<any> | Function | string, {read}?: {
         read?: any;
     }): any;
-    new (selector: Type | string, {read}?: {
+    new (selector: Type<any> | Function | string, {read}?: {
         read?: any;
-    }): ContentChildMetadataFactory;
+    }): ContentChild;
 }
 
 /** @stable */
-export declare var ContentChildren: ContentChildrenMetadataFactory;
+export declare const ContentChildren: ContentChildrenDecorator;
 
 /** @stable */
-export declare class ContentChildrenMetadata extends QueryMetadata {
-    constructor(_selector: Type | string, {descendants, read}?: {
-        descendants?: boolean;
-        read?: any;
-    });
-}
-
-/** @stable */
-export interface ContentChildrenMetadataFactory {
-    (selector: Type | string, {descendants, read}?: {
+export interface ContentChildrenDecorator {
+    /** @stable */ (selector: Type<any> | Function | string, {descendants, read}?: {
         descendants?: boolean;
         read?: any;
     }): any;
-    new (selector: Type | string, {descendants, read}?: {
+    new (selector: Type<any> | Function | string, {descendants, read}?: {
         descendants?: boolean;
         read?: any;
-    }): ContentChildrenMetadata;
+    }): Query;
 }
-
-/** @deprecated */
-export declare function coreBootstrap<C>(componentFactory: ComponentFactory<C>, injector: Injector): ComponentRef<C>;
-
-/** @deprecated */
-export declare function coreLoadAndBootstrap(componentType: Type, injector: Injector): Promise<ComponentRef<any>>;
 
 /** @experimental */
 export declare function createPlatform(injector: Injector): PlatformRef;
 
 /** @experimental */
-export declare function createPlatformFactory(parentPlaformFactory: PlatformFactory, name: string, providers?: any[]): PlatformFactory;
-
-/** @experimental */
-export declare const CUSTOM_ELEMENTS_SCHEMA: SchemaMetadata;
+export declare function createPlatformFactory(parentPlaformFactory: (extraProviders?: Provider[]) => PlatformRef, name: string, providers?: Provider[]): (extraProviders?: Provider[]) => PlatformRef;
 
 /** @stable */
-export declare class CyclicDependencyError extends AbstractProviderError {
-    constructor(injector: ReflectiveInjector, key: ReflectiveKey);
-}
+export declare const CUSTOM_ELEMENTS_SCHEMA: SchemaMetadata;
 
 /** @experimental */
 export declare class DebugElement extends DebugNode {
@@ -521,7 +346,6 @@ export declare class DebugNode {
     };
     source: string;
     constructor(nativeNode: any, parent: DebugNode, _debugInfo: RenderDebugInfo);
-    /** @deprecated */ inject(token: any): any;
 }
 
 /** @stable */
@@ -536,95 +360,28 @@ export declare class DefaultIterableDiffer implements IterableDiffer {
     forEachIdentityChange(fn: Function): void;
     forEachItem(fn: Function): void;
     forEachMovedItem(fn: Function): void;
+    forEachOperation(fn: (item: CollectionChangeRecord, previousIndex: number, currentIndex: number) => void): void;
     forEachPreviousItem(fn: Function): void;
     forEachRemovedItem(fn: Function): void;
     onDestroy(): void;
     toString(): string;
 }
 
-/** @stable */
-export declare var Directive: DirectiveMetadataFactory;
-
-/** @stable */
-export interface DirectiveDecorator extends TypeDecorator {
-}
-
-/** @stable */
-export declare class DirectiveMetadata extends InjectableMetadata {
-    /** @deprecated */ events: string[];
-    exportAs: string;
-    host: {
-        [key: string]: string;
-    };
-    inputs: string[];
-    outputs: string[];
-    /** @deprecated */ properties: string[];
-    providers: any[];
-    queries: {
-        [key: string]: any;
-    };
-    selector: string;
-    constructor({selector, inputs, outputs, properties, events, host, providers, exportAs, queries}?: {
-        selector?: string;
-        inputs?: string[];
-        outputs?: string[]; properties?: string[]; events?: string[];
-        host?: {
-            [key: string]: string;
-        };
-        providers?: any[];
-        exportAs?: string;
-        queries?: {
-            [key: string]: any;
-        };
-    });
-}
-
-/** @stable */
-export interface DirectiveMetadataFactory {
-    (obj: {
-        selector?: string;
-        inputs?: string[];
-        outputs?: string[];
-        properties?: string[];
-        events?: string[];
-        host?: {
-            [key: string]: string;
-        };
-        providers?: any[];
-        exportAs?: string;
-        queries?: {
-            [key: string]: any;
-        };
-    }): DirectiveDecorator;
-    new (obj: {
-        selector?: string;
-        inputs?: string[];
-        outputs?: string[];
-        properties?: string[];
-        events?: string[];
-        host?: {
-            [key: string]: string;
-        };
-        providers?: any[];
-        exportAs?: string;
-        queries?: {
-            [key: string]: any;
-        };
-    }): DirectiveMetadata;
-}
-
 /** @experimental */
-export declare function disposePlatform(): void;
+export declare function destroyPlatform(): void;
+
+/** @stable */
+export declare const Directive: DirectiveDecorator;
+
+/** @stable */
+export interface DirectiveDecorator {
+    /** @stable */ (obj: Directive): TypeDecorator;
+    new (obj: Directive): Directive;
+}
 
 /** @stable */
 export declare abstract class DoCheck {
     abstract ngDoCheck(): void;
-}
-
-/** @deprecated */
-export declare abstract class DynamicComponentLoader {
-    abstract loadAsRoot(type: Type, overrideSelectorOrNode: string | any, injector: Injector, onDispose?: () => void, projectableNodes?: any[][]): Promise<ComponentRef<any>>;
-    abstract loadNextToLocation(type: Type, location: ViewContainerRef, providers?: ResolvedReflectiveProvider[], projectableNodes?: any[][]): Promise<ComponentRef<any>>;
 }
 
 /** @stable */
@@ -640,32 +397,40 @@ export declare abstract class EmbeddedViewRef<C> extends ViewRef {
     abstract destroy(): void;
 }
 
-/** @experimental */
+/** @stable */
 export declare function enableProdMode(): void;
+
+/** @stable */
+export declare class ErrorHandler {
+    constructor(rethrowError?: boolean);
+    handleError(error: any): void;
+}
 
 /** @stable */
 export declare class EventEmitter<T> extends Subject<T> {
     __isAsync: boolean;
     constructor(isAsync?: boolean);
     emit(value?: T): void;
-    /** @deprecated */ next(value: any): void;
     subscribe(generatorOrNext?: any, error?: any, complete?: any): any;
 }
 
 /** @stable */
-export declare class ExceptionHandler {
-    constructor(_logger: any, _rethrowException?: boolean);
-    call(exception: any, stackTrace?: any, reason?: string): void;
-    static exceptionToString(exception: any, stackTrace?: any, reason?: string): string;
+export interface ExistingProvider {
+    multi?: boolean;
+    provide: any;
+    useExisting: any;
 }
 
 /** @stable */
-export declare class ExpressionChangedAfterItHasBeenCheckedException extends BaseException {
-    constructor(oldValue: any, currValue: any, context: any);
+export interface FactoryProvider {
+    deps?: any[];
+    multi?: boolean;
+    provide: any;
+    useFactory: Function;
 }
 
 /** @experimental */
-export declare function forwardRef(forwardRefFn: ForwardRefFn): Type;
+export declare function forwardRef(forwardRefFn: ForwardRefFn): Type<any>;
 
 /** @experimental */
 export interface ForwardRefFn {
@@ -674,6 +439,9 @@ export interface ForwardRefFn {
 
 /** @experimental */
 export declare function getDebugNode(nativeNode: any): DebugNode;
+
+/** @experimental */
+export declare function getModuleFactory(id: string): NgModuleFactory<any>;
 
 /** @experimental */
 export declare function getPlatform(): PlatformRef;
@@ -688,78 +456,36 @@ export interface GetTestability {
 export declare function group(steps: AnimationMetadata[]): AnimationGroupMetadata;
 
 /** @stable */
-export declare var Host: HostMetadataFactory;
+export declare const Host: HostDecorator;
 
 /** @stable */
-export declare var HostBinding: HostBindingMetadataFactory;
+export declare const HostBinding: HostBindingDecorator;
 
 /** @stable */
-export declare class HostBindingMetadata {
-    hostPropertyName: string;
-    constructor(hostPropertyName?: string);
+export interface HostDecorator {
+    /** @stable */ (): any;
+    new (): Host;
 }
 
 /** @stable */
-export interface HostBindingMetadataFactory {
-    (hostPropertyName?: string): any;
-    new (hostPropertyName?: string): any;
+export declare const HostListener: HostListenerDecorator;
+
+/** @stable */
+export declare const Inject: InjectDecorator;
+
+/** @stable */
+export declare const Injectable: InjectableDecorator;
+
+/** @stable */
+export interface InjectableDecorator {
+    /** @stable */ (): any;
+    new (): Injectable;
 }
 
 /** @stable */
-export declare var HostListener: HostListenerMetadataFactory;
-
-/** @stable */
-export declare class HostListenerMetadata {
-    args: string[];
-    eventName: string;
-    constructor(eventName: string, args?: string[]);
-}
-
-/** @stable */
-export interface HostListenerMetadataFactory {
-    (eventName: string, args?: string[]): any;
-    new (eventName: string, args?: string[]): any;
-}
-
-/** @stable */
-export declare class HostMetadata {
-    toString(): string;
-}
-
-/** @stable */
-export interface HostMetadataFactory {
-    (): any;
-    new (): HostMetadata;
-}
-
-/** @stable */
-export declare var Inject: InjectMetadataFactory;
-
-/** @stable */
-export declare var Injectable: InjectableMetadataFactory;
-
-/** @stable */
-export declare class InjectableMetadata {
-    constructor();
-}
-
-/** @stable */
-export interface InjectableMetadataFactory {
-    (): any;
-    new (): InjectableMetadata;
-}
-
-/** @stable */
-export declare class InjectMetadata {
-    token: any;
-    constructor(token: any);
-    toString(): string;
-}
-
-/** @stable */
-export interface InjectMetadataFactory {
-    (token: any): any;
-    new (token: any): InjectMetadata;
+export interface InjectDecorator {
+    /** @stable */ (token: any): any;
+    new (token: any): Inject;
 }
 
 /** @stable */
@@ -770,34 +496,7 @@ export declare abstract class Injector {
 }
 
 /** @stable */
-export declare var Input: InputMetadataFactory;
-
-/** @stable */
-export declare class InputMetadata {
-    bindingPropertyName: string;
-    constructor(
-        bindingPropertyName?: string);
-}
-
-/** @stable */
-export interface InputMetadataFactory {
-    (bindingPropertyName?: string): any;
-    new (bindingPropertyName?: string): any;
-}
-
-/** @stable */
-export declare class InstantiationError extends WrappedException {
-    causeKey: ReflectiveKey;
-    context: any;
-    wrapperMessage: string;
-    constructor(injector: ReflectiveInjector, originalException: any, originalStack: any, key: ReflectiveKey);
-    addKey(injector: ReflectiveInjector, key: ReflectiveKey): void;
-}
-
-/** @stable */
-export declare class InvalidProviderError extends BaseException {
-    constructor(provider: any);
-}
+export declare const Input: InputDecorator;
 
 /** @experimental */
 export declare function isDevMode(): boolean;
@@ -856,79 +555,46 @@ export declare class KeyValueDiffers {
     static extend(factories: KeyValueDifferFactory[]): Provider;
 }
 
-/** @deprecated */
-export declare function lockRunMode(): void;
+/** @experimental */
+export declare const LOCALE_ID: OpaqueToken;
 
 /** @experimental */
-export interface ModuleWithProviders {
-    ngModule: Type;
-    providers?: any[];
+export declare class ModuleWithComponentFactories<T> {
+    componentFactories: ComponentFactory<any>[];
+    ngModuleFactory: NgModuleFactory<T>;
+    constructor(ngModuleFactory: NgModuleFactory<T>, componentFactories: ComponentFactory<any>[]);
 }
-
-/** @experimental */
-export declare var NgModule: NgModuleMetadataFactory;
 
 /** @stable */
-export interface NgModuleDecorator extends TypeDecorator {
+export interface ModuleWithProviders {
+    ngModule: Type<any>;
+    providers?: Provider[];
 }
+
+/** @stable */
+export declare const NgModule: NgModuleDecorator;
 
 /** @experimental */
 export declare class NgModuleFactory<T> {
-    moduleType: ConcreteType<T>;
+    moduleType: Type<T>;
     constructor(_injectorClass: {
         new (parentInjector: Injector): NgModuleInjector<T>;
-    }, _moduleype: ConcreteType<T>);
+    }, _moduleType: Type<T>);
     create(parentInjector: Injector): NgModuleRef<T>;
 }
 
-/** @experimental */
+/** @stable */
 export declare abstract class NgModuleFactoryLoader {
     abstract load(path: string): Promise<NgModuleFactory<any>>;
 }
 
-/** @experimental */
-export declare class NgModuleMetadata extends InjectableMetadata {
-    declarations: Array<Type | any[]>;
-    entryComponents: Array<Type | any[]>;
-    exports: Array<Type | any[]>;
-    imports: Array<Type | ModuleWithProviders | any[]>;
-    providers: any[];
-    schemas: Array<SchemaMetadata | any[]>;
-    constructor({providers, declarations, imports, exports, entryComponents, schemas}?: {
-        providers?: any[];
-        declarations?: Array<Type | any[]>;
-        imports?: Array<Type | any[]>;
-        exports?: Array<Type | any[]>;
-        entryComponents?: Array<Type | any[]>;
-        schemas?: Array<SchemaMetadata | any[]>;
-    });
-}
-
-/** @experimental */
-export interface NgModuleMetadataFactory {
-    (obj?: {
-        providers?: any[];
-        declarations?: Array<Type | any[]>;
-        imports?: Array<Type | ModuleWithProviders | any[]>;
-        exports?: Array<Type | any[]>;
-        entryComponents?: Array<Type | any[]>;
-        schemas?: Array<SchemaMetadata | any[]>;
-    }): NgModuleDecorator;
-    new (obj?: {
-        providers?: any[];
-        declarations?: Array<Type | any[]>;
-        imports?: Array<Type | any[]>;
-        exports?: Array<Type | any[]>;
-        entryComponents?: Array<Type | any[]>;
-        schemas?: Array<SchemaMetadata | any[]>;
-    }): NgModuleMetadata;
-}
-
-/** @experimental */
+/** @stable */
 export declare abstract class NgModuleRef<T> {
     componentFactoryResolver: ComponentFactoryResolver;
     injector: Injector;
     instance: T;
+    abstract destroy(): void;
+    abstract onDestroy(callback: () => void): void;
 }
 
 /** @experimental */
@@ -951,28 +617,8 @@ export declare class NgZone {
     static isInAngularZone(): boolean;
 }
 
-/** @deprecated */
-export declare class NgZoneError {
-    error: any;
-    stackTrace: any;
-    constructor(error: any, stackTrace: any);
-}
-
-/** @stable */
-export declare class NoAnnotationError extends BaseException {
-    constructor(typeOrFunc: Type | Function, params: any[][]);
-}
-
-/** @stable */
-export declare class NoComponentFactoryError extends BaseException {
-    component: Function;
-    constructor(component: Function);
-}
-
-/** @stable */
-export declare class NoProviderError extends AbstractProviderError {
-    constructor(injector: ReflectiveInjector, key: ReflectiveKey);
-}
+/** @experimental */
+export declare const NO_ERRORS_SCHEMA: SchemaMetadata;
 
 /** @stable */
 export declare abstract class OnChanges {
@@ -996,138 +642,50 @@ export declare class OpaqueToken {
 }
 
 /** @stable */
-export declare var Optional: OptionalMetadataFactory;
+export declare const Optional: OptionalDecorator;
 
 /** @stable */
-export declare class OptionalMetadata {
-    toString(): string;
+export interface OptionalDecorator {
+    /** @stable */ (): any;
+    new (): Optional;
 }
 
 /** @stable */
-export interface OptionalMetadataFactory {
-    (): any;
-    new (): OptionalMetadata;
-}
-
-/** @stable */
-export declare class OutOfBoundsError extends BaseException {
-    constructor(index: number);
-}
-
-/** @stable */
-export declare var Output: OutputMetadataFactory;
-
-/** @stable */
-export declare class OutputMetadata {
-    bindingPropertyName: string;
-    constructor(bindingPropertyName?: string);
-}
-
-/** @stable */
-export interface OutputMetadataFactory {
-    (bindingPropertyName?: string): any;
-    new (bindingPropertyName?: string): any;
-}
+export declare const Output: OutputDecorator;
 
 /** @experimental */
 export declare const PACKAGE_ROOT_URL: any;
 
 /** @stable */
-export declare var Pipe: PipeMetadataFactory;
-
-/** @stable */
-export declare class PipeMetadata extends InjectableMetadata {
-    name: string;
-    pure: boolean;
-    constructor({name, pure}: {
-        name: string;
-        pure?: boolean;
-    });
-}
-
-/** @stable */
-export interface PipeMetadataFactory {
-    (obj: {
-        name: string;
-        pure?: boolean;
-    }): any;
-    new (obj: {
-        name: string;
-        pure?: boolean;
-    }): any;
-}
+export declare const Pipe: PipeDecorator;
 
 /** @stable */
 export interface PipeTransform {
     transform(value: any, ...args: any[]): any;
 }
 
-/** @deprecated */
-export declare const PLATFORM_COMMON_PROVIDERS: any[];
-
-/** @deprecated */
-export declare const PLATFORM_DIRECTIVES: OpaqueToken;
-
 /** @experimental */
 export declare const PLATFORM_INITIALIZER: any;
 
-/** @deprecated */
-export declare const PLATFORM_PIPES: OpaqueToken;
-
 /** @experimental */
-export declare const platformCore: (extraProviders?: any[]) => PlatformRef;
+export declare const platformCore: (extraProviders?: Provider[]) => PlatformRef;
 
-/** @experimental */
+/** @stable */
 export declare abstract class PlatformRef {
-    disposed: boolean;
+    destroyed: boolean;
     injector: Injector;
-    /** @stable */ bootstrapModule<M>(moduleType: ConcreteType<M>, compilerOptions?: CompilerOptions | CompilerOptions[]): Promise<NgModuleRef<M>>;
-    /** @experimental */ bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>): NgModuleRef<M>;
-    abstract dispose(): void;
-    abstract registerDisposeListener(dispose: () => void): void;
+    /** @stable */ bootstrapModule<M>(moduleType: Type<M>, compilerOptions?: CompilerOptions | CompilerOptions[]): Promise<NgModuleRef<M>>;
+    /** @experimental */ bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>): Promise<NgModuleRef<M>>;
+    abstract destroy(): void;
+    abstract onDestroy(callback: () => void): void;
 }
 
-/** @deprecated */
-export declare function provide(token: any, {useClass, useValue, useExisting, useFactory, deps, multi}: {
-    useClass?: Type;
-    useValue?: any;
-    useExisting?: any;
-    useFactory?: Function;
-    deps?: Object[];
-    multi?: boolean;
-}): Provider;
+/** @stable */
+export declare type Provider = TypeProvider | ValueProvider | ClassProvider | ExistingProvider | FactoryProvider | any[];
 
-/** @deprecated */
-export declare class Provider {
-    dependencies: Object[];
-    multi: boolean;
-    token: any;
-    useClass: Type;
-    useExisting: any;
-    useFactory: Function;
-    useValue: any;
-    constructor(token: any, {useClass, useValue, useExisting, useFactory, deps, multi}: {
-        useClass?: Type;
-        useValue?: any;
-        useExisting?: any;
-        useFactory?: Function;
-        deps?: Object[];
-        multi?: boolean;
-    });
+/** @stable */
+export declare abstract class Query {
 }
-
-/** @deprecated */
-export declare class ProviderBuilder {
-    token: any;
-    constructor(token: any);
-    toAlias(aliasToken: any): Provider;
-    toClass(type: Type): Provider;
-    toFactory(factory: Function, dependencies?: any[]): Provider;
-    toValue(value: any): Provider;
-}
-
-/** @deprecated */
-export declare var Query: QueryMetadataFactory;
 
 /** @stable */
 export declare class QueryList<T> {
@@ -1148,53 +706,17 @@ export declare class QueryList<T> {
     toString(): string;
 }
 
-/** @deprecated */
-export declare class QueryMetadata extends DependencyMetadata {
-    descendants: boolean;
-    first: boolean;
-    isVarBindingQuery: boolean;
-    isViewQuery: boolean;
-    read: any;
-    selector: any;
-    varBindings: string[];
-    constructor(_selector: Type | string, {descendants, first, read}?: {
-        descendants?: boolean;
-        first?: boolean;
-        read?: any;
-    });
-    toString(): string;
-}
-
-/** @deprecated */
-export interface QueryMetadataFactory {
-    (selector: Type | string, {descendants, read}?: {
-        descendants?: boolean;
-        read?: any;
-    }): ParameterDecorator;
-    new (selector: Type | string, {descendants, read}?: {
-        descendants?: boolean;
-        read?: any;
-    }): QueryMetadata;
-}
-
 /** @stable */
 export declare abstract class ReflectiveInjector implements Injector {
     parent: Injector;
     createChildFromResolved(providers: ResolvedReflectiveProvider[]): ReflectiveInjector;
     abstract get(token: any, notFoundValue?: any): any;
     instantiateResolved(provider: ResolvedReflectiveProvider): any;
-    resolveAndCreateChild(providers: Array<Type | Provider | {
-        [k: string]: any;
-    } | any[]>): ReflectiveInjector;
-    resolveAndInstantiate(provider: Type | Provider): any;
-    /** @deprecated */ static fromResolvedBindings(providers: ResolvedReflectiveProvider[]): ReflectiveInjector;
+    resolveAndCreateChild(providers: Provider[]): ReflectiveInjector;
+    resolveAndInstantiate(provider: Provider): any;
     /** @experimental */ static fromResolvedProviders(providers: ResolvedReflectiveProvider[], parent?: Injector): ReflectiveInjector;
-    static resolve(providers: Array<Type | Provider | {
-        [k: string]: any;
-    } | any[]>): ResolvedReflectiveProvider[];
-    static resolveAndCreate(providers: Array<Type | Provider | {
-        [k: string]: any;
-    } | any[]>, parent?: Injector): ReflectiveInjector;
+    static resolve(providers: Provider[]): ResolvedReflectiveProvider[];
+    static resolveAndCreate(providers: Provider[], parent?: Injector): ReflectiveInjector;
 }
 
 /** @experimental */
@@ -1245,10 +767,6 @@ export declare abstract class Renderer {
     abstract setText(renderNode: any, text: string): void;
 }
 
-/** @deprecated */
-export interface ResolvedReflectiveBinding extends ResolvedReflectiveProvider {
-}
-
 /** @experimental */
 export declare class ResolvedReflectiveFactory {
     dependencies: ReflectiveDependency[];
@@ -1274,7 +792,7 @@ export declare abstract class RootRenderer {
 }
 
 /** @stable */
-export declare abstract class SanitizationService {
+export declare abstract class Sanitizer {
     abstract sanitize(context: SecurityContext, value: string): string;
 }
 
@@ -1294,17 +812,12 @@ export declare enum SecurityContext {
 }
 
 /** @stable */
-export declare var Self: SelfMetadataFactory;
+export declare const Self: SelfDecorator;
 
 /** @stable */
-export declare class SelfMetadata {
-    toString(): string;
-}
-
-/** @stable */
-export interface SelfMetadataFactory {
-    (): any;
-    new (): SelfMetadata;
+export interface SelfDecorator {
+    /** @stable */ (): any;
+    new (): Self;
 }
 
 /** @experimental */
@@ -1327,17 +840,12 @@ export interface SimpleChanges {
 }
 
 /** @stable */
-export declare var SkipSelf: SkipSelfMetadataFactory;
+export declare const SkipSelf: SkipSelfDecorator;
 
 /** @stable */
-export declare class SkipSelfMetadata {
-    toString(): string;
-}
-
-/** @stable */
-export interface SkipSelfMetadataFactory {
-    (): any;
-    new (): SkipSelfMetadata;
+export interface SkipSelfDecorator {
+    /** @stable */ (): any;
+    new (): SkipSelf;
 }
 
 /** @experimental */
@@ -1350,24 +858,16 @@ export declare function style(tokens: string | {
     [key: string]: string | number;
 }>): AnimationStyleMetadata;
 
-/** @deprecated */
-export declare class SystemJsCmpFactoryResolver implements ComponentResolver {
-    constructor(_console: Console);
-    clearCache(): void;
-    resolveComponent(componentType: string | Type): Promise<ComponentFactory<any>>;
-}
-
-/** @deprecated */
-export declare class SystemJsComponentResolver implements ComponentResolver {
-    constructor(_resolver: ComponentResolver, _console: Console);
-    clearCache(): void;
-    resolveComponent(componentType: string | Type): Promise<ComponentFactory<any>>;
+/** @experimental */
+export declare class SystemJsNgModuleLoader implements NgModuleFactoryLoader {
+    constructor(_compiler: Compiler, config?: SystemJsNgModuleLoaderConfig);
+    load(path: string): Promise<NgModuleFactory<any>>;
 }
 
 /** @experimental */
-export declare class SystemJsNgModuleLoader implements NgModuleFactoryLoader {
-    constructor(_compiler: Compiler);
-    load(path: string): Promise<NgModuleFactory<any>>;
+export declare abstract class SystemJsNgModuleLoaderConfig {
+    factoryPathPrefix: string;
+    factoryPathSuffix: string;
 }
 
 /** @stable */
@@ -1377,10 +877,10 @@ export declare abstract class TemplateRef<C> {
 }
 
 /** @experimental */
-export declare class Testability {
+export declare class Testability implements PublicTestability {
     constructor(_ngZone: NgZone);
     decreasePendingRequestCount(): number;
-    findBindings(using: any, provider: string, exactMatch: boolean): any[];
+    /** @deprecated */ findBindings(using: any, provider: string, exactMatch: boolean): any[];
     findProviders(using: any, provider: string, exactMatch: boolean): any[];
     getPendingRequestCount(): number;
     increasePendingRequestCount(): number;
@@ -1407,57 +907,59 @@ export interface TrackByFn {
 export declare function transition(stateChangeExpr: string, steps: AnimationMetadata | AnimationMetadata[]): AnimationStateTransitionMetadata;
 
 /** @experimental */
+export declare const TRANSLATIONS: OpaqueToken;
+
+/** @experimental */
+export declare const TRANSLATIONS_FORMAT: OpaqueToken;
+
+/** @experimental */
 export declare function trigger(name: string, animation: AnimationMetadata[]): AnimationEntryMetadata;
 
 /** @stable */
-export declare var Type: FunctionConstructor;
+export declare const Type: FunctionConstructor;
 
 /** @stable */
 export interface TypeDecorator {
     annotations: any[];
     (target: Object, propertyKey?: string | symbol, parameterIndex?: number): void;
-    <T extends Type>(type: T): T;
-    Class(obj: ClassDefinition): ConcreteType<any>;
+    <T extends Type<any>>(type: T): T;
+    Class(obj: ClassDefinition): Type<any>;
 }
 
 /** @stable */
-export declare var ViewChild: ViewChildMetadataFactory;
-
-/** @stable */
-export declare class ViewChildMetadata extends ViewQueryMetadata {
-    constructor(_selector: Type | string, {read}?: {
-        read?: any;
-    });
+export interface TypeProvider extends Type<any> {
 }
 
 /** @stable */
-export interface ViewChildMetadataFactory {
-    (selector: Type | string, {read}?: {
+export interface ValueProvider {
+    multi?: boolean;
+    provide: any;
+    useValue: any;
+}
+
+/** @stable */
+export declare const ViewChild: ViewChildDecorator;
+
+/** @stable */
+export interface ViewChildDecorator {
+    /** @stable */ (selector: Type<any> | Function | string, {read}?: {
         read?: any;
     }): any;
-    new (selector: Type | string, {read}?: {
+    new (selector: Type<any> | Function | string, {read}?: {
         read?: any;
-    }): ViewChildMetadataFactory;
+    }): ViewChild;
 }
 
 /** @stable */
-export declare var ViewChildren: ViewChildrenMetadataFactory;
+export declare const ViewChildren: ViewChildrenDecorator;
 
 /** @stable */
-export declare class ViewChildrenMetadata extends ViewQueryMetadata {
-    constructor(_selector: Type | string, {read}?: {
-        read?: any;
-    });
-}
-
-/** @stable */
-export interface ViewChildrenMetadataFactory {
-    (selector: Type | string, {read}?: {
+export interface ViewChildrenDecorator { (selector: Type<any> | Function | string, {read}?: {
         read?: any;
     }): any;
-    new (selector: Type | string, {read}?: {
+    new (selector: Type<any> | Function | string, {read}?: {
         read?: any;
-    }): ViewChildrenMetadata;
+    }): ViewChildren;
 }
 
 /** @stable */
@@ -1473,22 +975,8 @@ export declare abstract class ViewContainerRef {
     abstract get(index: number): ViewRef;
     abstract indexOf(viewRef: ViewRef): number;
     abstract insert(viewRef: ViewRef, index?: number): ViewRef;
+    abstract move(viewRef: ViewRef, currentIndex: number): ViewRef;
     abstract remove(index?: number): void;
-}
-
-/** @experimental */
-export interface ViewDecorator extends TypeDecorator {
-    View(obj: {
-        templateUrl?: string;
-        template?: string;
-        directives?: Array<Type | any[]>;
-        pipes?: Array<Type | any[]>;
-        renderer?: string;
-        styles?: string[];
-        styleUrls?: string[];
-        animations?: AnimationEntryMetadata[];
-        interpolation?: [string, string];
-    }): ViewDecorator;
 }
 
 /** @stable */
@@ -1498,86 +986,10 @@ export declare enum ViewEncapsulation {
     None = 2,
 }
 
-/** @experimental */
-export declare class ViewMetadata {
-    animations: AnimationEntryMetadata[];
-    directives: Array<Type | any[]>;
-    encapsulation: ViewEncapsulation;
-    interpolation: [string, string];
-    pipes: Array<Type | any[]>;
-    styleUrls: string[];
-    styles: string[];
-    template: string;
-    templateUrl: string;
-    constructor({templateUrl, template, directives, pipes, encapsulation, styles, styleUrls, animations, interpolation}?: {
-        templateUrl?: string;
-        template?: string;
-        directives?: Array<Type | any[]>;
-        pipes?: Array<Type | any[]>;
-        encapsulation?: ViewEncapsulation;
-        styles?: string[];
-        styleUrls?: string[];
-        animations?: AnimationEntryMetadata[];
-        interpolation?: [string, string];
-    });
-}
-
-/** @experimental */
-export interface ViewMetadataFactory {
-    (obj: {
-        templateUrl?: string;
-        template?: string;
-        directives?: Array<Type | any[]>;
-        pipes?: Array<Type | any[]>;
-        encapsulation?: ViewEncapsulation;
-        styles?: string[];
-        styleUrls?: string[];
-        animations?: AnimationEntryMetadata[];
-        interpolation?: [string, string];
-    }): ViewDecorator;
-    new (obj: {
-        templateUrl?: string;
-        template?: string;
-        directives?: Array<Type | any[]>;
-        pipes?: Array<Type | any[]>;
-        encapsulation?: ViewEncapsulation;
-        styles?: string[];
-        styleUrls?: string[];
-        animations?: AnimationEntryMetadata[];
-        interpolation?: [string, string];
-    }): ViewMetadata;
-}
-
-/** @deprecated */
-export declare var ViewQuery: QueryMetadataFactory;
-
-/** @deprecated */
-export declare class ViewQueryMetadata extends QueryMetadata {
-    isViewQuery: boolean;
-    constructor(_selector: Type | string, {descendants, first, read}?: {
-        descendants?: boolean;
-        first?: boolean;
-        read?: any;
-    });
-    toString(): string;
-}
-
 /** @stable */
 export declare abstract class ViewRef {
     destroyed: boolean;
     abstract onDestroy(callback: Function): any;
-}
-
-/** @stable */
-export declare class WrappedException extends BaseWrappedException {
-    context: any;
-    message: string;
-    originalException: any;
-    originalStack: any;
-    wrapperMessage: string;
-    wrapperStack: any;
-    constructor(_wrapperMessage: string, _originalException: any, _originalStack?: any, _context?: any);
-    toString(): string;
 }
 
 /** @stable */

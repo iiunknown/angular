@@ -7,10 +7,12 @@
  */
 
 import {Injector, THROW_IF_NOT_FOUND} from '../di/injector';
-import {unimplemented} from '../facade/exceptions';
-import {ConcreteType} from '../facade/lang';
+import {unimplemented} from '../facade/errors';
+import {stringify} from '../facade/lang';
+import {Type} from '../type';
 import {ComponentFactory} from './component_factory';
 import {CodegenComponentFactoryResolver, ComponentFactoryResolver} from './component_factory_resolver';
+
 
 
 /**
@@ -19,7 +21,7 @@ import {CodegenComponentFactoryResolver, ComponentFactoryResolver} from './compo
  * `NgModuleRef` provides access to the NgModule Instance as well other objects related to this
  * NgModule Instance.
  *
- * @experimental
+ * @stable
  */
 export abstract class NgModuleRef<T> {
   /**
@@ -29,7 +31,7 @@ export abstract class NgModuleRef<T> {
 
   /**
    * The ComponentFactoryResolver to get hold of the ComponentFactories
-   * delcared in the `entryComponents` property of the module.
+   * declared in the `entryComponents` property of the module.
    */
   get componentFactoryResolver(): ComponentFactoryResolver { return unimplemented(); }
 
@@ -37,6 +39,16 @@ export abstract class NgModuleRef<T> {
    * The NgModule instance.
    */
   get instance(): T { return unimplemented(); }
+
+  /**
+   * Destroys the module instance and all of the data structures associated with it.
+   */
+  abstract destroy(): void;
+
+  /**
+   * Allows to register a callback that will be called when the module is destroyed.
+   */
+  abstract onDestroy(callback: () => void): void;
 }
 
 /**
@@ -45,9 +57,9 @@ export abstract class NgModuleRef<T> {
 export class NgModuleFactory<T> {
   constructor(
       private _injectorClass: {new (parentInjector: Injector): NgModuleInjector<T>},
-      private _moduleype: ConcreteType<T>) {}
+      private _moduleType: Type<T>) {}
 
-  get moduleType(): ConcreteType<T> { return this._moduleype; }
+  get moduleType(): Type<T> { return this._moduleType; }
 
   create(parentInjector: Injector): NgModuleRef<T> {
     if (!parentInjector) {
@@ -64,9 +76,14 @@ const _UNDEFINED = new Object();
 export abstract class NgModuleInjector<T> extends CodegenComponentFactoryResolver implements
     Injector,
     NgModuleRef<T> {
+  private _destroyListeners: (() => void)[] = [];
+  private _destroyed: boolean = false;
+
   public instance: T;
 
-  constructor(public parent: Injector, factories: ComponentFactory<any>[]) {
+  constructor(
+      public parent: Injector, factories: ComponentFactory<any>[],
+      public bootstrapFactories: ComponentFactory<any>[]) {
     super(factories, parent.get(ComponentFactoryResolver, ComponentFactoryResolver.NULL));
   }
 
@@ -87,4 +104,18 @@ export abstract class NgModuleInjector<T> extends CodegenComponentFactoryResolve
   get injector(): Injector { return this; }
 
   get componentFactoryResolver(): ComponentFactoryResolver { return this; }
+
+  destroy(): void {
+    if (this._destroyed) {
+      throw new Error(
+          `The ng module ${stringify(this.instance.constructor)} has already been destroyed.`);
+    }
+    this._destroyed = true;
+    this.destroyInternal();
+    this._destroyListeners.forEach((listener) => listener());
+  }
+
+  onDestroy(callback: () => void): void { this._destroyListeners.push(callback); }
+
+  abstract destroyInternal(): void;
 }

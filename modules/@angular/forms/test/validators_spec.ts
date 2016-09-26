@@ -12,14 +12,13 @@ import {AbstractControl, FormControl, Validators} from '@angular/forms';
 import {Observable} from 'rxjs/Observable';
 
 import {normalizeAsyncValidator} from '../src/directives/normalize_validator';
-import {EventEmitter, ObservableWrapper, TimerWrapper} from '../src/facade/async';
-import {PromiseWrapper} from '../src/facade/promise';
+import {EventEmitter} from '../src/facade/async';
 
 export function main() {
   function validator(key: string, error: any) {
     return function(c: AbstractControl) {
-      var r = {};
-      (r as any)[key] = error;
+      var r: {[k: string]: string} = {};
+      r[key] = error;
       return r;
     };
   }
@@ -133,14 +132,14 @@ export function main() {
         return (c: any /** TODO #9100 */) => {
           var emitter = new EventEmitter();
           var res = c.value != expected ? response : null;
-
-          PromiseWrapper.scheduleMicrotask(() => {
-            ObservableWrapper.callEmit(emitter, res);
+          Promise.resolve(null).then(() => {
+            emitter.emit(res);
             // this is required because of a bug in ObservableWrapper
             // where callComplete can fire before callEmit
             // remove this one the bug is fixed
-            TimerWrapper.setTimeout(() => { ObservableWrapper.callComplete(emitter); }, 0);
+            setTimeout(() => { emitter.complete(); }, 0);
           });
+
           return emitter;
         };
       }

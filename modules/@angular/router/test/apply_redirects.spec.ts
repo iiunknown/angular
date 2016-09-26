@@ -251,6 +251,47 @@ describe('applyRedirects', () => {
               (r) => { compareTrees(r, tree('/a/b')); }, (e) => { throw 'Should not reach'; });
 
     });
+
+    it('should work with absolute redirects', () => {
+      const loadedConfig = new LoadedRouterConfig(
+          [{path: '', component: ComponentB}], <any>'stubInjector', <any>'stubFactoryResolver');
+
+      const loader = {load: (injector: any, p: any) => of (loadedConfig)};
+
+      const config =
+          [{path: '', pathMatch: 'full', redirectTo: '/a'}, {path: 'a', loadChildren: 'children'}];
+
+      applyRedirects(<any>'providedInjector', <any>loader, tree(''), config).forEach(r => {
+        compareTrees(r, tree('a'));
+        expect((<any>config[1])._loadedConfig).toBe(loadedConfig);
+      });
+    });
+
+    it('should load the configuration only once', () => {
+      const loadedConfig = new LoadedRouterConfig(
+          [{path: '', component: ComponentB}], <any>'stubInjector', <any>'stubFactoryResolver');
+
+      let called = false;
+      const loader = {
+        load: (injector: any, p: any) => {
+          if (called) throw new Error('Should not be called twice');
+          called = true;
+          return of (loadedConfig);
+        }
+      };
+
+      const config = [{path: 'a', loadChildren: 'children'}];
+
+      applyRedirects(<any>'providedInjector', <any>loader, tree('a?k1'), config).subscribe(r => {});
+
+      applyRedirects(<any>'providedInjector', <any>loader, tree('a?k2'), config)
+          .subscribe(
+              r => {
+                compareTrees(r, tree('a'));
+                expect((<any>config[0])._loadedConfig).toBe(loadedConfig);
+              },
+              (e) => { throw 'Should not reach'; });
+    });
   });
 
   describe('empty paths', () => {
@@ -373,7 +414,7 @@ describe('applyRedirects', () => {
               children: [
                 {path: 'b', component: ComponentB}, {path: '', redirectTo: 'b'},
                 {path: 'c', component: ComponentC, outlet: 'aux'},
-                {path: '', terminal: true, redirectTo: 'c', outlet: 'aux'}
+                {path: '', pathMatch: 'full', redirectTo: 'c', outlet: 'aux'}
               ]
             }],
             'a', (t: UrlTree) => { compareTrees(t, tree('a/(b//aux:c)')); });

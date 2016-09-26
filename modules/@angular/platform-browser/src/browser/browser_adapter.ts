@@ -64,6 +64,9 @@ var _chromeNumKeyPadMap = {
 
 /**
  * A `DomAdapter` powered by full browser DOM APIs.
+ *
+ * @security Tread carefully! Interacting with the DOM directly is dangerous and
+ * can introduce XSS risks.
  */
 /* tslint:disable:requireParameterType */
 export class BrowserDomAdapter extends GenericBrowserDomAdapter {
@@ -161,7 +164,7 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   childNodes(el: any /** TODO #9100 */): Node[] { return el.childNodes; }
   childNodesAsList(el: any /** TODO #9100 */): any[] {
     var childNodes = el.childNodes;
-    var res = ListWrapper.createFixedSize(childNodes.length);
+    var res = new Array(childNodes.length);
     for (var i = 0; i < childNodes.length; i++) {
       res[i] = childNodes[i];
     }
@@ -327,7 +330,7 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   isCommentNode(node: Node): boolean { return node.nodeType === Node.COMMENT_NODE; }
   isElementNode(node: Node): boolean { return node.nodeType === Node.ELEMENT_NODE; }
   hasShadowRoot(node: any /** TODO #9100 */): boolean {
-    return node instanceof HTMLElement && isPresent(node.shadowRoot);
+    return isPresent(node.shadowRoot) && node instanceof HTMLElement;
   }
   isShadowRoot(node: any /** TODO #9100 */): boolean { return node instanceof DocumentFragment; }
   importIntoDoc(node: Node): any {
@@ -394,10 +397,6 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   getComputedStyle(element: any /** TODO #9100 */): any { return getComputedStyle(element); }
   // TODO(tbosch): move this into a separate environment class once we have it
   setGlobalVar(path: string, value: any) { setValueOnPath(global, path, value); }
-  requestAnimationFrame(callback: any /** TODO #9100 */): number {
-    return window.requestAnimationFrame(callback);
-  }
-  cancelAnimationFrame(id: number) { window.cancelAnimationFrame(id); }
   supportsWebAnimation(): boolean { return isFunction((<any>Element).prototype['animate']); }
   performanceNow(): number {
     // performance.now() is not available in all browsers, see
@@ -443,13 +442,14 @@ function relativePath(url: any /** TODO #9100 */): string {
                                                        '/' + urlParsingNode.pathname;
 }
 
-export function parseCookieValue(cookie: string, name: string): string {
+export function parseCookieValue(cookieStr: string, name: string): string {
   name = encodeURIComponent(name);
-  let cookies = cookie.split(';');
-  for (let cookie of cookies) {
-    let [key, value] = cookie.split('=', 2);
-    if (key.trim() === name) {
-      return decodeURIComponent(value);
+  for (const cookie of cookieStr.split(';')) {
+    const eqIndex = cookie.indexOf('=');
+    const [cookieName, cookieValue]: string[] =
+        eqIndex == -1 ? [cookie, ''] : [cookie.slice(0, eqIndex), cookie.slice(eqIndex + 1)];
+    if (cookieName.trim() === name) {
+      return decodeURIComponent(cookieValue);
     }
   }
   return null;

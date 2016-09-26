@@ -6,12 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {HtmlElementAst} from '@angular/compiler/src/html_ast';
-import {HtmlParser} from '@angular/compiler/src/html_parser';
 import {DomElementSchemaRegistry} from '@angular/compiler/src/schema/dom_element_schema_registry';
-import {CUSTOM_ELEMENTS_SCHEMA, SecurityContext} from '@angular/core';
+import {CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA, SecurityContext} from '@angular/core';
 import {beforeEach, ddescribe, describe, expect, iit, inject, it, xdescribe, xit} from '@angular/core/testing/testing_internal';
 import {browserDetection} from '@angular/platform-browser/testing/browser_util';
+
+import {Element} from '../../src/ml_parser/ast';
+import {HtmlParser} from '../../src/ml_parser/html_parser';
 
 import {extractSchema} from './schema_extractor';
 
@@ -19,6 +20,24 @@ export function main() {
   describe('DOMElementSchema', () => {
     let registry: DomElementSchemaRegistry;
     beforeEach(() => { registry = new DomElementSchemaRegistry(); });
+
+    it('should detect elements', () => {
+      expect(registry.hasElement('div', [])).toBeTruthy();
+      expect(registry.hasElement('b', [])).toBeTruthy();
+      expect(registry.hasElement('ng-container', [])).toBeTruthy();
+      expect(registry.hasElement('ng-content', [])).toBeTruthy();
+
+      expect(registry.hasElement('my-cmp', [])).toBeFalsy();
+      expect(registry.hasElement('abc', [])).toBeFalsy();
+    });
+
+    // https://github.com/angular/angular/issues/11219
+    it('should detect elements missing from chrome', () => {
+      expect(registry.hasElement('data', [])).toBeTruthy();
+      expect(registry.hasElement('menuitem', [])).toBeTruthy();
+      expect(registry.hasElement('summary', [])).toBeTruthy();
+      expect(registry.hasElement('time', [])).toBeTruthy();
+    });
 
     it('should detect properties on regular elements', () => {
       expect(registry.hasProperty('div', 'id', [])).toBeTruthy();
@@ -35,9 +54,19 @@ export function main() {
       expect(registry.hasProperty('div', 'unknown', [])).toBeFalsy();
     });
 
+    // https://github.com/angular/angular/issues/11219
+    it('should detect properties on elements missing from Chrome', () => {
+      expect(registry.hasProperty('data', 'value', [])).toBeTruthy();
+
+      expect(registry.hasProperty('menuitem', 'type', [])).toBeTruthy();
+      expect(registry.hasProperty('menuitem', 'default', [])).toBeTruthy();
+
+      expect(registry.hasProperty('time', 'dateTime', [])).toBeTruthy();
+    });
+
     it('should detect different kinds of types', () => {
-      // inheritance: video => media => *
-      expect(registry.hasProperty('video', 'className', [])).toBeTruthy();   // from *
+      // inheritance: video => media => [HTMLElement] => [Element]
+      expect(registry.hasProperty('video', 'className', [])).toBeTruthy();   // from [Element]
       expect(registry.hasProperty('video', 'id', [])).toBeTruthy();          // string
       expect(registry.hasProperty('video', 'scrollLeft', [])).toBeTruthy();  // number
       expect(registry.hasProperty('video', 'height', [])).toBeTruthy();      // number
@@ -56,6 +85,16 @@ export function main() {
 
     it('should return true for custom-like elements if the CUSTOM_ELEMENTS_SCHEMA was used', () => {
       expect(registry.hasProperty('custom-like', 'unknown', [CUSTOM_ELEMENTS_SCHEMA])).toBeTruthy();
+
+      expect(registry.hasElement('custom-like', [CUSTOM_ELEMENTS_SCHEMA])).toBeTruthy();
+    });
+
+    it('should return true for all elements if the NO_ERRORS_SCHEMA was used', () => {
+      expect(registry.hasProperty('custom-like', 'unknown', [NO_ERRORS_SCHEMA])).toBeTruthy();
+      expect(registry.hasProperty('a', 'unknown', [NO_ERRORS_SCHEMA])).toBeTruthy();
+
+      expect(registry.hasElement('custom-like', [NO_ERRORS_SCHEMA])).toBeTruthy();
+      expect(registry.hasElement('unknown', [NO_ERRORS_SCHEMA])).toBeTruthy();
     });
 
     it('should re-map property names that are specified in DOM facade',
@@ -77,7 +116,7 @@ export function main() {
 
     it('should detect properties on namespaced elements', () => {
       const htmlAst = new HtmlParser().parse('<svg:style>', 'TestComp');
-      const nodeName = (<HtmlElementAst>htmlAst.rootNodes[0]).name;
+      const nodeName = (<Element>htmlAst.rootNodes[0]).name;
       expect(registry.hasProperty(nodeName, 'type', [])).toBeTruthy();
     });
 

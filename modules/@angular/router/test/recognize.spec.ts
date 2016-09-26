@@ -24,7 +24,7 @@ describe('recognize', () => {
     checkRecognize([{path: 'a/:id', component: ComponentA}], 'a/10', (s: RouterStateSnapshot) => {
       checkActivatedRoute(s.root, '', {}, RootComponent);
       const child = s.firstChild(s.root);
-      expect(() => child.params['prop'] = 'new').toThrowError(/Can't add property/);
+      expect(Object.isFrozen(child.params)).toBeTruthy();
     });
   });
 
@@ -257,19 +257,6 @@ describe('recognize', () => {
             (s: RouterStateSnapshot) => {
               checkActivatedRoute(s.firstChild(s.root), '', {}, ComponentA);
             });
-      });
-
-      it('should not match when terminal', () => {
-        recognize(
-            RootComponent, [{
-              path: '',
-              pathMatch: 'full',
-              component: ComponentA,
-              children: [{path: 'b', component: ComponentB}]
-            }],
-            tree('b'), '')
-            .subscribe(
-                () => {}, (e) => { expect(e.message).toEqual('Cannot match any routes: \'b\''); });
       });
 
       it('should work (nested case)', () => {
@@ -644,13 +631,13 @@ describe('recognize', () => {
     it('should support query params', () => {
       const config = [{path: 'a', component: ComponentA}];
       checkRecognize(config, 'a?q=11', (s: RouterStateSnapshot) => {
-        expect(s.queryParams).toEqual({q: '11'});
+        expect(s.root.queryParams).toEqual({q: '11'});
       });
     });
 
     it('should freeze query params object', () => {
       checkRecognize([{path: 'a', component: ComponentA}], 'a?q=11', (s: RouterStateSnapshot) => {
-        expect(() => s.queryParams['prop'] = 'new').toThrowError(/Can't add property/);
+        expect(Object.isFrozen(s.root.queryParams)).toBeTruthy();
       });
     });
   });
@@ -659,7 +646,7 @@ describe('recognize', () => {
     it('should support fragment', () => {
       const config = [{path: 'a', component: ComponentA}];
       checkRecognize(
-          config, 'a#f1', (s: RouterStateSnapshot) => { expect(s.fragment).toEqual('f1'); });
+          config, 'a#f1', (s: RouterStateSnapshot) => { expect(s.root.fragment).toEqual('f1'); });
     });
   });
 
@@ -676,20 +663,6 @@ describe('recognize', () => {
             expect(s.toString())
                 .toContain(
                     'Two segments cannot have the same outlet name: \'aux:b\' and \'aux:c\'.');
-          });
-    });
-
-    it('should error when no matching routes', () => {
-      recognize(RootComponent, [{path: 'a', component: ComponentA}], tree('invalid'), 'invalid')
-          .subscribe((_) => {}, (s: RouterStateSnapshot) => {
-            expect(s.toString()).toContain('Cannot match any routes');
-          });
-    });
-
-    it('should error when no matching routes (too short)', () => {
-      recognize(RootComponent, [{path: 'a/:id', component: ComponentA}], tree('a'), 'a')
-          .subscribe((_) => {}, (s: RouterStateSnapshot) => {
-            expect(s.toString()).toContain('Cannot match any routes');
           });
     });
   });

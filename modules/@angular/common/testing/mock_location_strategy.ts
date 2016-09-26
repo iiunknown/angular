@@ -6,10 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Injectable} from '@angular/core';
-
-import {LocationStrategy} from '../index';
-import {EventEmitter, ObservableWrapper} from '../src/facade/async';
+import {LocationStrategy} from '@angular/common';
+import {EventEmitter, Injectable} from '@angular/core';
 
 
 
@@ -31,7 +29,7 @@ export class MockLocationStrategy extends LocationStrategy {
 
   simulatePopState(url: string): void {
     this.internalPath = url;
-    ObservableWrapper.callEmit(this._subject, new _MockPopStateEvent(this.path()));
+    this._subject.emit(new _MockPopStateEvent(this.path()));
   }
 
   path(includeHash: boolean = false): string { return this.internalPath; }
@@ -63,7 +61,7 @@ export class MockLocationStrategy extends LocationStrategy {
     this.urlChanges.push('replace: ' + externalUrl);
   }
 
-  onPopState(fn: (value: any) => void): void { ObservableWrapper.subscribe(this._subject, fn); }
+  onPopState(fn: (value: any) => void): void { this._subject.subscribe({next: fn}); }
 
   getBaseHref(): string { return this.internalBaseHref; }
 

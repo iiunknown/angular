@@ -6,19 +6,18 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {provide} from '../index';
-import {StringMapWrapper} from '../src/facade/collection';
-import {Math, global, isFunction, isPromise} from '../src/facade/lang';
-
 import {AsyncTestCompleter} from './async_test_completer';
-import {getTestBed, inject} from './test_bed';
+import {StringMapWrapper} from './facade/collection';
+import {Math, global} from './facade/lang';
+import {isPromise} from './private_import_core';
+import {TestBed, getTestBed, inject} from './test_bed';
 
 export {AsyncTestCompleter} from './async_test_completer';
 export {MockAnimationPlayer} from './mock_animation_player';
 export {inject} from './test_bed';
+
 export * from './logger';
 export * from './ng_zone_mock';
-export * from './mock_application_ref';
 
 export var proxy: ClassDecorator = (t: any /** TODO #9100 */) => t;
 
@@ -35,7 +34,7 @@ var jsmIt = _global.it;
 var jsmIIt = _global.fit;
 var jsmXIt = _global.xit;
 
-var runnerStack: any[] /** TODO #9100 */ = [];
+var runnerStack: BeforeEachRunner[] = [];
 var inIt = false;
 jasmine.DEFAULT_TIMEOUT_INTERVAL = 3000;
 var globalTimeOut = jasmine.DEFAULT_TIMEOUT_INTERVAL;
@@ -61,9 +60,9 @@ class BeforeEachRunner {
 }
 
 // Reset the test providers before each test
-jsmBeforeEach(() => { testBed.reset(); });
+jsmBeforeEach(() => { testBed.resetTestingModule(); });
 
-function _describe(jsmFn: any /** TODO #9100 */, ...args: any[] /** TODO #9100 */) {
+function _describe(jsmFn: Function, ...args: any[]) {
   var parentRunner = runnerStack.length === 0 ? null : runnerStack[runnerStack.length - 1];
   var runner = new BeforeEachRunner(parentRunner);
   runnerStack.push(runner);
@@ -72,15 +71,15 @@ function _describe(jsmFn: any /** TODO #9100 */, ...args: any[] /** TODO #9100 *
   return suite;
 }
 
-export function describe(...args: any[] /** TODO #9100 */): void {
+export function describe(...args: any[]): void {
   return _describe(jsmDescribe, ...args);
 }
 
-export function ddescribe(...args: any[] /** TODO #9100 */): void {
+export function ddescribe(...args: any[]): void {
   return _describe(jsmDDescribe, ...args);
 }
 
-export function xdescribe(...args: any[] /** TODO #9100 */): void {
+export function xdescribe(...args: any[]): void {
   return _describe(jsmXDescribe, ...args);
 }
 
@@ -106,20 +105,14 @@ export function beforeEach(fn: Function): void {
  *     {provide: SomeToken, useValue: myValue},
  *   ]);
  */
-export function beforeEachProviders(fn: any /** TODO #9100 */): void {
+export function beforeEachProviders(fn: Function): void {
   jsmBeforeEach(() => {
     var providers = fn();
     if (!providers) return;
-    testBed.configureModule({providers: providers});
+    testBed.configureTestingModule({providers: providers});
   });
 }
 
-/**
- * @deprecated
- */
-export function beforeEachBindings(fn: any /** TODO #9100 */): void {
-  beforeEachProviders(fn);
-}
 
 function _it(jsmFn: Function, name: string, testFn: Function, testTimeOut: number): void {
   if (runnerStack.length == 0) {
@@ -138,7 +131,7 @@ function _it(jsmFn: Function, name: string, testFn: Function, testTimeOut: numbe
         return new AsyncTestCompleter();
       }
     };
-    testBed.configureModule({providers: [completerProvider]});
+    testBed.configureTestingModule({providers: [completerProvider]});
     runner.run();
 
     inIt = true;

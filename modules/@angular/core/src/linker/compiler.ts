@@ -6,15 +6,15 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Injector, OpaqueToken} from '../di';
-import {BaseException} from '../facade/exceptions';
-import {ConcreteType, Type, stringify} from '../facade/lang';
+import {OpaqueToken} from '../di';
+import {BaseError} from '../facade/errors';
+import {stringify} from '../facade/lang';
 import {ViewEncapsulation} from '../metadata';
-import {NgModuleMetadata} from '../metadata/ng_module';
+import {Type} from '../type';
 
 import {ComponentFactory} from './component_factory';
-import {ComponentResolver} from './component_resolver';
 import {NgModuleFactory} from './ng_module_factory';
+
 
 
 /**
@@ -22,14 +22,30 @@ import {NgModuleFactory} from './ng_module_factory';
  *
  * @stable
  */
-export class ComponentStillLoadingError extends BaseException {
-  constructor(public compType: Type) {
+export class ComponentStillLoadingError extends BaseError {
+  constructor(public compType: Type<any>) {
     super(`Can't compile synchronously as ${stringify(compType)} is still being loaded!`);
   }
 }
 
 /**
- * Low-level service for running the angular compiler duirng runtime
+ * Combination of NgModuleFactory and ComponentFactorys.
+ *
+ * @experimental
+ */
+export class ModuleWithComponentFactories<T> {
+  constructor(
+      public ngModuleFactory: NgModuleFactory<T>,
+      public componentFactories: ComponentFactory<any>[]) {}
+}
+
+
+function _throwError() {
+  throw new Error(`Runtime compiler is not loaded`);
+}
+
+/**
+ * Low-level service for running the angular compiler during runtime
  * to create {@link ComponentFactory}s, which
  * can later be used to create and render a Component instance.
  *
@@ -40,52 +56,41 @@ export class ComponentStillLoadingError extends BaseException {
  */
 export class Compiler {
   /**
-   * Returns the injector with which the compiler has been created.
+   * Compiles the given NgModule and all of its components. All templates of the components listed
+   * in `entryComponents`
+   * have to be inlined. Otherwise throws a {@link ComponentStillLoadingError}.
    */
-  get _injector(): Injector {
-    throw new BaseException(`Runtime compiler is not loaded. Tried to read the injector.`);
+  compileModuleSync<T>(moduleType: Type<T>): NgModuleFactory<T> { throw _throwError(); }
+
+  /**
+   * Compiles the given NgModule and all of its components
+   */
+  compileModuleAsync<T>(moduleType: Type<T>): Promise<NgModuleFactory<T>> { throw _throwError(); }
+
+  /**
+   * Same as {@link compileModuleSync} but also creates ComponentFactories for all components.
+   */
+  compileModuleAndAllComponentsSync<T>(moduleType: Type<T>): ModuleWithComponentFactories<T> {
+    throw _throwError();
   }
 
   /**
-   * Loads the template and styles of a component and returns the associated `ComponentFactory`.
+   * Same as {@link compileModuleAsync} but also creates ComponentFactories for all components.
    */
-  compileComponentAsync<T>(component: ConcreteType<T>, ngModule: Type = null):
-      Promise<ComponentFactory<T>> {
-    throw new BaseException(
-        `Runtime compiler is not loaded. Tried to compile ${stringify(component)}`);
-  }
-  /**
-   * Compiles the given component. All templates have to be either inline or compiled via
-   * `compileComponentAsync` before. Otherwise throws a {@link ComponentStillLoadingError}.
-   */
-  compileComponentSync<T>(component: ConcreteType<T>, ngModule: Type = null): ComponentFactory<T> {
-    throw new BaseException(
-        `Runtime compiler is not loaded. Tried to compile ${stringify(component)}`);
-  }
-  /**
-   * Compiles the given NgModule. All templates of the components listed in `entryComponents`
-   * have to be either inline or compiled before via `compileComponentAsync` /
-   * `compileModuleAsync`. Otherwise throws a {@link ComponentStillLoadingError}.
-   */
-  compileModuleSync<T>(moduleType: ConcreteType<T>): NgModuleFactory<T> {
-    throw new BaseException(
-        `Runtime compiler is not loaded. Tried to compile ${stringify(moduleType)}`);
-  }
-
-  compileModuleAsync<T>(moduleType: ConcreteType<T>): Promise<NgModuleFactory<T>> {
-    throw new BaseException(
-        `Runtime compiler is not loaded. Tried to compile ${stringify(moduleType)}`);
+  compileModuleAndAllComponentsAsync<T>(moduleType: Type<T>):
+      Promise<ModuleWithComponentFactories<T>> {
+    throw _throwError();
   }
 
   /**
-   * Clears all caches
+   * Clears all caches.
    */
   clearCache(): void {}
 
   /**
    * Clears the cache for the given component/ngModule.
    */
-  clearCacheFor(type: Type) {}
+  clearCacheFor(type: Type<any>) {}
 }
 
 /**
@@ -105,7 +110,7 @@ export type CompilerOptions = {
  *
  * @experimental
  */
-export const CompilerOptions = new OpaqueToken('compilerOptions');
+export const COMPILER_OPTIONS = new OpaqueToken('compilerOptions');
 
 /**
  * A factory for creating a Compiler

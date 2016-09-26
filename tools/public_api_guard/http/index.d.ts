@@ -1,7 +1,4 @@
 /** @experimental */
-export declare function _createDefaultCookieXSRFStrategy(): CookieXSRFStrategy;
-
-/** @experimental */
 export declare class BaseRequestOptions extends RequestOptions {
     constructor();
 }
@@ -64,36 +61,22 @@ export declare class Http {
     delete(url: string, options?: RequestOptionsArgs): Observable<Response>;
     get(url: string, options?: RequestOptionsArgs): Observable<Response>;
     head(url: string, options?: RequestOptionsArgs): Observable<Response>;
+    options(url: string, options?: RequestOptionsArgs): Observable<Response>;
     patch(url: string, body: any, options?: RequestOptionsArgs): Observable<Response>;
     post(url: string, body: any, options?: RequestOptionsArgs): Observable<Response>;
     put(url: string, body: any, options?: RequestOptionsArgs): Observable<Response>;
     request(url: string | Request, options?: RequestOptionsArgs): Observable<Response>;
 }
 
-/** @deprecated */
-export declare const HTTP_BINDINGS: any[];
-
-/** @deprecated */
-export declare const HTTP_PROVIDERS: any[];
-
-/** @experimental */
-export declare function httpFactory(xhrBackend: XHRBackend, requestOptions: RequestOptions): Http;
-
 /** @experimental */
 export declare class HttpModule {
 }
-
-/** @deprecated */
-export declare const JSON_BINDINGS: any[];
 
 /** @experimental */
 export declare class Jsonp extends Http {
     constructor(backend: ConnectionBackend, defaultOptions: RequestOptions);
     request(url: string | Request, options?: RequestOptionsArgs): Observable<Response>;
 }
-
-/** @experimental */
-export declare const JSONP_PROVIDERS: any[];
 
 /** @experimental */
 export declare abstract class JSONPBackend extends ConnectionBackend {

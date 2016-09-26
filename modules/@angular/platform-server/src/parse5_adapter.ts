@@ -9,11 +9,9 @@
 var parse5 = require('parse5/index');
 
 import {ListWrapper, StringMapWrapper} from '../src/facade/collection';
-import {DomAdapter, setRootDomAdapter} from '../platform_browser_private';
-import {isPresent, isBlank, global, Type, setValueOnPath, DateWrapper} from '../src/facade/lang';
-import {BaseException} from '../src/facade/exceptions';
-import {SelectorMatcher, CssSelector} from '../compiler_private';
-import {XHR} from '@angular/compiler';
+import {DomAdapter, setRootDomAdapter} from './private_import_platform-browser';
+import {isPresent, isBlank, global, setValueOnPath, DateWrapper} from '../src/facade/lang';
+import {SelectorMatcher, CssSelector} from './private_import_compiler';
 
 var parser: any /** TODO #9100 */ = null;
 var serializer: any /** TODO #9100 */ = null;
@@ -30,10 +28,16 @@ var defDoc: any /** TODO #9100 */ = null;
 var mapProps = ['attribs', 'x-attribsNamespace', 'x-attribsPrefix'];
 
 function _notImplemented(methodName: any /** TODO #9100 */) {
-  return new BaseException('This method is not implemented in Parse5DomAdapter: ' + methodName);
+  return new Error('This method is not implemented in Parse5DomAdapter: ' + methodName);
 }
 
 /* tslint:disable:requireParameterType */
+/**
+ * A `DomAdapter` powered by the `parse5` NodeJS module.
+ *
+ * @security Tread carefully! Interacting with the DOM directly is dangerous and
+ * can introduce XSS risks.
+ */
 export class Parse5DomAdapter extends DomAdapter {
   static makeCurrent() {
     parser = new parse5.Parser(parse5.TreeAdapters.htmlparser2);
@@ -67,8 +71,6 @@ export class Parse5DomAdapter extends DomAdapter {
   logGroup(error: any /** TODO #9100 */) { console.error(error); }
 
   logGroupEnd() {}
-
-  getXHR(): Type { return XHR; }
 
   get attrToPropMap() { return _attrToPropMap; }
 
@@ -132,17 +134,13 @@ export class Parse5DomAdapter extends DomAdapter {
     return result;
   }
   on(el: any /** TODO #9100 */, evt: any /** TODO #9100 */, listener: any /** TODO #9100 */) {
-    var listenersMap: {[k: /*any*/ string]: any} = el._eventListenersMap;
+    var listenersMap: {[k: string]: any} = el._eventListenersMap;
     if (isBlank(listenersMap)) {
-      var listenersMap: {[k: /*any*/ string]: any} = StringMapWrapper.create();
+      var listenersMap: {[k: string]: any} = {};
       el._eventListenersMap = listenersMap;
     }
-    var listeners = StringMapWrapper.get(listenersMap, evt);
-    if (isBlank(listeners)) {
-      listeners = [];
-    }
-    listeners.push(listener);
-    StringMapWrapper.set(listenersMap, evt, listeners);
+    const listeners = listenersMap[evt] || [];
+    listenersMap[evt] = [...listeners, listener];
   }
   onAndCancel(
       el: any /** TODO #9100 */, evt: any /** TODO #9100 */,
@@ -205,7 +203,7 @@ export class Parse5DomAdapter extends DomAdapter {
   childNodes(el: any /** TODO #9100 */): Node[] { return el.childNodes; }
   childNodesAsList(el: any /** TODO #9100 */): any[] {
     var childNodes = el.childNodes;
-    var res = ListWrapper.createFixedSize(childNodes.length);
+    var res = new Array(childNodes.length);
     for (var i = 0; i < childNodes.length; i++) {
       res[i] = childNodes[i];
     }
@@ -485,7 +483,7 @@ export class Parse5DomAdapter extends DomAdapter {
   }
   removeAttribute(element: any /** TODO #9100 */, attribute: string) {
     if (attribute) {
-      StringMapWrapper.delete(element.attribs, attribute);
+      delete element.attribs[attribute];
     }
   }
   removeAttributeNS(element: any /** TODO #9100 */, ns: string, name: string) {
@@ -503,7 +501,7 @@ export class Parse5DomAdapter extends DomAdapter {
     this.appendChild(newDoc, body);
     StringMapWrapper.set(newDoc, 'head', head);
     StringMapWrapper.set(newDoc, 'body', body);
-    StringMapWrapper.set(newDoc, '_window', StringMapWrapper.create());
+    StringMapWrapper.set(newDoc, '_window', {});
     return newDoc;
   }
   defaultDoc(): Document {
@@ -542,7 +540,7 @@ export class Parse5DomAdapter extends DomAdapter {
     var rules: any[] /** TODO #9100 */ = [];
     for (var i = 0; i < parsedRules.length; i++) {
       var parsedRule = parsedRules[i];
-      var rule: {[key: string]: any} = StringMapWrapper.create();
+      var rule: {[key: string]: any} = {};
       StringMapWrapper.set(rule, 'cssText', css);
       StringMapWrapper.set(rule, 'style', {content: '', cssText: ''});
       if (parsedRule.type == 'rule') {
@@ -600,8 +598,6 @@ export class Parse5DomAdapter extends DomAdapter {
   }
   // TODO(tbosch): move this into a separate environment class once we have it
   setGlobalVar(path: string, value: any) { setValueOnPath(global, path, value); }
-  requestAnimationFrame(callback: any /** TODO #9100 */): number { return setTimeout(callback, 0); }
-  cancelAnimationFrame(id: number) { clearTimeout(id); }
   supportsWebAnimation(): boolean { return false; }
   performanceNow(): number { return DateWrapper.toMillis(DateWrapper.now()); }
   getAnimationPrefix(): string { return ''; }

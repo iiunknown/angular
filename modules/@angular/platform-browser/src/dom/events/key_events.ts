@@ -8,10 +8,10 @@
 
 import {Injectable, NgZone} from '@angular/core';
 
-import {isPresent, StringWrapper,} from '../../facade/lang';
-import {StringMapWrapper, ListWrapper} from '../../facade/collection';
-
+import {ListWrapper, StringMapWrapper} from '../../facade/collection';
+import {StringWrapper, isPresent} from '../../facade/lang';
 import {getDOM} from '../dom_adapter';
+
 import {EventManagerPlugin} from './event_manager';
 
 
@@ -72,7 +72,7 @@ export class KeyEventsPlugin extends EventManagerPlugin {
       // returning null instead of throwing to let another plugin process the event
       return null;
     }
-    var result = StringMapWrapper.create();
+    var result = {};
     StringMapWrapper.set(result, 'domEventName', domEventName);
     StringMapWrapper.set(result, 'fullKey', fullKey);
     return result;

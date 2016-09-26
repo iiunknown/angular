@@ -6,9 +6,9 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+
 import {CompileIdentifierMetadata} from '../compile_metadata';
 import {StringMapWrapper} from '../facade/collection';
-import {BaseException} from '../facade/exceptions';
 import {isBlank, isPresent, isString} from '../facade/lang';
 import {ValueTransformer, visitValue} from '../util';
 
@@ -259,7 +259,7 @@ export class WritePropExpr extends Expression {
 export enum BuiltinMethod {
   ConcatArray,
   SubscribeObservable,
-  bind
+  Bind
 }
 
 export class InvokeMethodExpr extends Expression {
@@ -567,7 +567,7 @@ export class ClassStmt extends Statement {
 export class IfStmt extends Statement {
   constructor(
       public condition: Expression, public trueCase: Statement[],
-      public falseCase: Statement[] = /*@ts2dart_const*/[]) {
+      public falseCase: Statement[] = []) {
     super();
   }
   visitStatement(visitor: StatementVisitor, context: any): any {

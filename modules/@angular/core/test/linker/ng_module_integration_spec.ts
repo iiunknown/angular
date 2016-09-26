@@ -6,22 +6,19 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {LowerCasePipe, NgIf} from '@angular/common';
-import {CompilerConfig, NgModuleResolver, ViewResolver} from '@angular/compiler';
-import {MockNgModuleResolver, MockViewResolver} from '@angular/compiler/testing';
-import {ANALYZE_FOR_ENTRY_COMPONENTS, CUSTOM_ELEMENTS_SCHEMA, Compiler, Component, ComponentFactoryResolver, ComponentRef, ComponentResolver, DebugElement, Directive, Host, HostBinding, Inject, Injectable, Injector, Input, ModuleWithProviders, NgModule, NgModuleMetadata, NgModuleRef, OpaqueToken, Optional, Pipe, Provider, ReflectiveInjector, SelfMetadata, SkipSelf, SkipSelfMetadata, ViewMetadata, forwardRef, getDebugNode, provide} from '@angular/core';
+import {ANALYZE_FOR_ENTRY_COMPONENTS, CUSTOM_ELEMENTS_SCHEMA, Compiler, Component, ComponentFactoryResolver, Directive, HostBinding, Inject, Injectable, Injector, Input, NgModule, NgModuleRef, Optional, Pipe, Provider, Self, Type, forwardRef, getModuleFactory} from '@angular/core';
 import {Console} from '@angular/core/src/console';
-import {ComponentFixture, configureCompiler} from '@angular/core/testing';
-import {AsyncTestCompleter, beforeEach, beforeEachProviders, ddescribe, describe, iit, inject, it, xdescribe, xit} from '@angular/core/testing/testing_internal';
+import {ComponentFixture, TestBed, inject} from '@angular/core/testing';
 import {expect} from '@angular/platform-browser/testing/matchers';
 
-import {BaseException} from '../../src/facade/exceptions';
-import {ConcreteType, IS_DART, Type, stringify} from '../../src/facade/lang';
+import {stringify} from '../../src/facade/lang';
+import {NgModuleInjector} from '../../src/linker/ng_module_factory';
+import {clearModulesForTest} from '../../src/linker/ng_module_factory_loader';
 
 class Engine {}
 
 class BrokenEngine {
-  constructor() { throw new BaseException('Broken Engine'); }
+  constructor() { throw new Error('Broken Engine'); }
 }
 
 class DashboardSoftware {}
@@ -105,13 +102,9 @@ class DummyConsole implements Console {
 }
 
 export function main() {
-  if (IS_DART) {
-    declareTests({useJit: false});
-  } else {
-    describe('jit', () => { declareTests({useJit: true}); });
+  describe('jit', () => { declareTests({useJit: true}); });
 
-    describe('no jit', () => { declareTests({useJit: false}); });
-  }
+  describe('no jit', () => { declareTests({useJit: false}); });
 }
 
 function declareTests({useJit}: {useJit: boolean}) {
@@ -122,22 +115,20 @@ function declareTests({useJit}: {useJit: boolean}) {
 
     beforeEach(() => {
       console = new DummyConsole();
-      configureCompiler({useJit: useJit, providers: [{provide: Console, useValue: console}]});
+      TestBed.configureCompiler(
+          {useJit: useJit, providers: [{provide: Console, useValue: console}]});
     });
 
-    beforeEach(
-        inject([Compiler, Injector, ViewResolver], (_compiler: Compiler, _injector: Injector) => {
-          compiler = _compiler;
-          injector = _injector;
-        }));
+    beforeEach(inject([Compiler, Injector], (_compiler: Compiler, _injector: Injector) => {
+      compiler = _compiler;
+      injector = _injector;
+    }));
 
-    function createModule<T>(
-        moduleType: ConcreteType<T>, parentInjector: Injector = null): NgModuleRef<T> {
+    function createModule<T>(moduleType: Type<T>, parentInjector: Injector = null): NgModuleRef<T> {
       return compiler.compileModuleSync(moduleType).create(parentInjector);
     }
 
-    function createComp<T>(
-        compType: ConcreteType<T>, moduleType: ConcreteType<any>): ComponentFixture<T> {
+    function createComp<T>(compType: Type<T>, moduleType: Type<any>): ComponentFixture<T> {
       let ngModule = createModule(moduleType);
       var cf = ngModule.componentFactoryResolver.resolveComponentFactory(compType);
       return new ComponentFixture(cf.create(injector), null, false);
@@ -177,7 +168,9 @@ function declareTests({useJit}: {useJit: boolean}) {
 
         expect(() => createModule(Module2))
             .toThrowError(
-                `Type ${stringify(SomeDirective)} is part of the declarations of 2 modules: ${stringify(Module1)} and ${stringify(Module2)}!`);
+                `Type ${stringify(SomeDirective)} is part of the declarations of 2 modules: ${stringify(Module1)} and ${stringify(Module2)}! ` +
+                `Please consider moving ${stringify(SomeDirective)} to a higher module that imports ${stringify(Module1)} and ${stringify(Module2)}. ` +
+                `You can also create a new NgModule that exports and includes ${stringify(SomeDirective)} then import that NgModule in ${stringify(Module1)} and ${stringify(Module2)}.`);
       });
 
       it('should error if a directive is declared in more than 1 module also if the module declaring it is imported',
@@ -192,7 +185,9 @@ function declareTests({useJit}: {useJit: boolean}) {
 
            expect(() => createModule(Module2))
                .toThrowError(
-                   `Type ${stringify(SomeDirective)} is part of the declarations of 2 modules: ${stringify(Module1)} and ${stringify(Module2)}!`);
+                   `Type ${stringify(SomeDirective)} is part of the declarations of 2 modules: ${stringify(Module1)} and ${stringify(Module2)}! ` +
+                   `Please consider moving ${stringify(SomeDirective)} to a higher module that imports ${stringify(Module1)} and ${stringify(Module2)}. ` +
+                   `You can also create a new NgModule that exports and includes ${stringify(SomeDirective)} then import that NgModule in ${stringify(Module1)} and ${stringify(Module2)}.`);
          });
 
       it('should error if a pipe is declared in more than 1 module', () => {
@@ -208,7 +203,9 @@ function declareTests({useJit}: {useJit: boolean}) {
 
         expect(() => createModule(Module2))
             .toThrowError(
-                `Type ${stringify(SomePipe)} is part of the declarations of 2 modules: ${stringify(Module1)} and ${stringify(Module2)}!`);
+                `Type ${stringify(SomePipe)} is part of the declarations of 2 modules: ${stringify(Module1)} and ${stringify(Module2)}! ` +
+                `Please consider moving ${stringify(SomePipe)} to a higher module that imports ${stringify(Module1)} and ${stringify(Module2)}. ` +
+                `You can also create a new NgModule that exports and includes ${stringify(SomePipe)} then import that NgModule in ${stringify(Module1)} and ${stringify(Module2)}.`);
       });
 
       it('should error if a pipe is declared in more than 1 module also if the module declaring it is imported',
@@ -223,7 +220,9 @@ function declareTests({useJit}: {useJit: boolean}) {
 
            expect(() => createModule(Module2))
                .toThrowError(
-                   `Type ${stringify(SomePipe)} is part of the declarations of 2 modules: ${stringify(Module1)} and ${stringify(Module2)}!`);
+                   `Type ${stringify(SomePipe)} is part of the declarations of 2 modules: ${stringify(Module1)} and ${stringify(Module2)}! ` +
+                   `Please consider moving ${stringify(SomePipe)} to a higher module that imports ${stringify(Module1)} and ${stringify(Module2)}. ` +
+                   `You can also create a new NgModule that exports and includes ${stringify(SomePipe)} then import that NgModule in ${stringify(Module1)} and ${stringify(Module2)}.`);
          });
 
     });
@@ -256,8 +255,32 @@ function declareTests({useJit}: {useJit: boolean}) {
          });
     });
 
+    describe('id', () => {
+      const token = 'myid';
+      @NgModule({id: token})
+      class SomeModule {
+      }
+      @NgModule({id: token})
+      class SomeOtherModule {
+      }
+
+      afterEach(() => clearModulesForTest());
+
+      it('should register loaded modules', () => {
+        createModule(SomeModule);
+        let factory = getModuleFactory(token);
+        expect(factory).toBeTruthy();
+        expect(factory.moduleType).toBe(SomeModule);
+      });
+
+      it('should throw when registering a duplicate module', () => {
+        createModule(SomeModule);
+        expect(() => createModule(SomeOtherModule)).toThrowError(/Duplicate module registered/);
+      });
+    });
+
     describe('entryComponents', () => {
-      it('should entryComponents ComponentFactories in root modules', () => {
+      it('should create ComponentFactories in root modules', () => {
         @NgModule({declarations: [SomeComp], entryComponents: [SomeComp]})
         class SomeModule {
         }
@@ -271,29 +294,36 @@ function declareTests({useJit}: {useJit: boolean}) {
             .toBe(SomeComp);
       });
 
-      it('should warn and auto declare when using an entryComponent that was neither declared nor imported',
+      it('should throw if we cannot find a module associated with a module-level entryComponent', () => {
+        @Component({template: ''})
+        class SomeCompWithEntryComponents {
+        }
+
+        @NgModule({declarations: [], entryComponents: [SomeCompWithEntryComponents]})
+        class SomeModule {
+        }
+
+        expect(() => createModule(SomeModule))
+            .toThrowError(
+                'Component SomeCompWithEntryComponents is not part of any NgModule or the module has not been imported into your module.');
+      });
+
+      it('should throw if we cannot find a module associated with a component-level entryComponent',
          () => {
            @Component({template: '', entryComponents: [SomeComp]})
            class SomeCompWithEntryComponents {
            }
 
-           @NgModule({entryComponents: [SomeCompWithEntryComponents]})
+           @NgModule({declarations: [SomeCompWithEntryComponents]})
            class SomeModule {
            }
 
-           const ngModule = createModule(SomeModule);
-           expect(ngModule.componentFactoryResolver
-                      .resolveComponentFactory(SomeCompWithEntryComponents)
-                      .componentType)
-               .toBe(SomeCompWithEntryComponents);
-
-           expect(console.warnings).toEqual([
-             `NgModule ${stringify(SomeModule)} uses ${stringify(SomeCompWithEntryComponents)} via "entryComponents" but it was neither declared nor imported! This warning will become an error after final.`,
-             `Component ${stringify(SomeCompWithEntryComponents)} in NgModule ${stringify(SomeModule)} uses ${stringify(SomeComp)} via "entryComponents" but it was neither declared nor imported into the module! This warning will become an error after final.`
-           ]);
+           expect(() => createModule(SomeModule))
+               .toThrowError(
+                   'Component SomeComp is not part of any NgModule or the module has not been imported into your module.');
          });
 
-      it('should entryComponents ComponentFactories via ANALYZE_FOR_ENTRY_COMPONENTS', () => {
+      it('should create ComponentFactories via ANALYZE_FOR_ENTRY_COMPONENTS', () => {
         @NgModule({
           declarations: [SomeComp],
           providers: [{
@@ -314,7 +344,7 @@ function declareTests({useJit}: {useJit: boolean}) {
             .toBe(SomeComp);
       });
 
-      it('should entryComponents ComponentFactories in imported modules', () => {
+      it('should create ComponentFactories in imported modules', () => {
         @NgModule({declarations: [SomeComp], entryComponents: [SomeComp]})
         class SomeImportedModule {
         }
@@ -332,7 +362,7 @@ function declareTests({useJit}: {useJit: boolean}) {
             .toBe(SomeComp);
       });
 
-      it('should entryComponents ComponentFactories if the component was imported', () => {
+      it('should create ComponentFactories if the component was imported', () => {
         @NgModule({declarations: [SomeComp], exports: [SomeComp]})
         class SomeImportedModule {
         }
@@ -348,6 +378,29 @@ function declareTests({useJit}: {useJit: boolean}) {
                    .resolveComponentFactory(SomeComp)
                    .componentType)
             .toBe(SomeComp);
+      });
+
+    });
+
+    describe('bootstrap components', () => {
+      it('should create ComponentFactories', () => {
+        @NgModule({declarations: [SomeComp], bootstrap: [SomeComp]})
+        class SomeModule {
+        }
+
+        const ngModule = createModule(SomeModule);
+        expect(ngModule.componentFactoryResolver.resolveComponentFactory(SomeComp).componentType)
+            .toBe(SomeComp);
+      });
+
+      it('should store the ComponentFactories in the NgModuleInjector', () => {
+        @NgModule({declarations: [SomeComp], bootstrap: [SomeComp]})
+        class SomeModule {
+        }
+
+        const ngModule = <NgModuleInjector<any>>createModule(SomeModule);
+        expect(ngModule.bootstrapFactories.length).toBe(1);
+        expect(ngModule.bootstrapFactories[0].componentType).toBe(SomeComp);
       });
 
     });
@@ -410,61 +463,6 @@ function declareTests({useJit}: {useJit: boolean}) {
           expect(compFixture.debugElement.children[0].children[0].properties['title'])
               .toBe('transformed someValue');
         });
-
-        it('should hoist @Component.directives/pipes into the module', () => {
-          @Component({
-            selector: 'parent',
-            template: '<comp></comp>',
-            directives: [CompUsingModuleDirectiveAndPipe, SomeDirective],
-            pipes: [SomePipe]
-          })
-          class ParentCompUsingModuleDirectiveAndPipe {
-          }
-
-          @NgModule({
-            declarations: [ParentCompUsingModuleDirectiveAndPipe],
-            entryComponents: [ParentCompUsingModuleDirectiveAndPipe]
-          })
-          class SomeModule {
-          }
-
-          const compFixture = createComp(ParentCompUsingModuleDirectiveAndPipe, SomeModule);
-          compFixture.detectChanges();
-          expect(compFixture.debugElement.children[0].children[0].properties['title'])
-              .toBe('transformed someValue');
-        });
-
-        it('should allow to use directives/pipes via @Component.directives/pipes that were already imported from another module',
-           () => {
-             @Component({
-               selector: 'parent',
-               template: '<comp></comp>',
-               directives: [CompUsingModuleDirectiveAndPipe, SomeDirective],
-               pipes: [SomePipe]
-             })
-             class ParentCompUsingModuleDirectiveAndPipe {
-             }
-
-             @NgModule({
-               declarations: [SomeDirective, SomePipe, CompUsingModuleDirectiveAndPipe],
-               exports: [SomeDirective, SomePipe, CompUsingModuleDirectiveAndPipe]
-             })
-             class SomeImportedModule {
-             }
-
-             @NgModule({
-               declarations: [ParentCompUsingModuleDirectiveAndPipe],
-               imports: [SomeImportedModule],
-               entryComponents: [ParentCompUsingModuleDirectiveAndPipe]
-             })
-             class SomeModule {
-             }
-
-             const compFixture = createComp(ParentCompUsingModuleDirectiveAndPipe, SomeModule);
-             compFixture.detectChanges();
-             expect(compFixture.debugElement.children[0].children[0].properties['title'])
-                 .toBe('transformed someValue');
-           });
       });
 
       describe('import/export', () => {
@@ -596,71 +594,12 @@ function declareTests({useJit}: {useJit: boolean}) {
       });
     });
 
-    describe('bound compiler', () => {
-      it('should provide a Compiler instance that uses the directives/pipes of the module', () => {
-        @NgModule({declarations: [SomeDirective, SomePipe]})
-        class SomeModule {
-        }
-
-        const ngModule = createModule(SomeModule);
-        const boundCompiler: Compiler = ngModule.injector.get(Compiler);
-        const cf = boundCompiler.compileComponentSync(CompUsingModuleDirectiveAndPipe);
-        const compFixture = new ComponentFixture(cf.create(injector), null, false);
-        compFixture.detectChanges();
-        expect(compFixture.debugElement.children[0].properties['title'])
-            .toBe('transformed someValue');
-
-        // compile again should produce the same result
-        expect(boundCompiler.compileComponentSync(CompUsingModuleDirectiveAndPipe)).toBe(cf);
-      });
-
-      it('should provide a ComponentResolver instance that uses the directives/pipes of the module',
-         inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-
-           @NgModule({declarations: [SomeDirective, SomePipe]})
-           class SomeModule {
-           }
-
-           const ngModule = createModule(SomeModule);
-
-           const boundCompiler: ComponentResolver = ngModule.injector.get(ComponentResolver);
-           boundCompiler.resolveComponent(CompUsingModuleDirectiveAndPipe).then((cf) => {
-             const compFixture = new ComponentFixture(cf.create(injector), null, false);
-             compFixture.detectChanges();
-             expect(compFixture.debugElement.children[0].properties['title'])
-                 .toBe('transformed someValue');
-             async.done();
-           });
-         }));
-
-      it('should provide a ComponentResolver instance that delegates to the parent ComponentResolver for strings',
-         inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-           @NgModule()
-           class SomeModule {
-           }
-
-           let parentResolver: any =
-               jasmine.createSpyObj('resolver', ['resolveComponent', 'clearCache']);
-           const ngModule = createModule(
-               SomeModule, ReflectiveInjector.resolveAndCreate(
-                               [{provide: ComponentResolver, useValue: parentResolver}]));
-           parentResolver.resolveComponent.and.returnValue(
-               Promise.resolve('someFactoryFromParent'));
-           let boundCompiler: ComponentResolver = ngModule.injector.get(ComponentResolver);
-           boundCompiler.resolveComponent('someString').then((result) => {
-             expect(parentResolver.resolveComponent).toHaveBeenCalledWith('someString');
-             expect(result).toBe('someFactoryFromParent');
-             async.done();
-           });
-         }));
-
-    });
 
     describe('providers', function() {
       let moduleType: any = null;
 
 
-      function createInjector(providers: any[], parent: Injector = null): Injector {
+      function createInjector(providers: Provider[], parent: Injector = null): Injector {
         @NgModule({providers: providers})
         class SomeModule {
         }
@@ -702,7 +641,7 @@ function declareTests({useJit}: {useJit: boolean}) {
       });
 
       it('should throw when no type and not @Inject (factory case)', () => {
-        expect(() => createInjector([provide('someToken', {useFactory: factoryFn})]))
+        expect(() => createInjector([{provide: 'someToken', useFactory: factoryFn}]))
             .toThrowError('Can\'t resolve all parameters for factoryFn: (?).');
       });
 
@@ -716,7 +655,7 @@ function declareTests({useJit}: {useJit: boolean}) {
       });
 
       it('should provide to a value', () => {
-        var injector = createInjector([provide(Engine, {useValue: 'fake engine'})]);
+        var injector = createInjector([{provide: Engine, useValue: 'fake engine'}]);
 
         var engine = injector.get(Engine);
         expect(engine).toEqual('fake engine');
@@ -726,7 +665,7 @@ function declareTests({useJit}: {useJit: boolean}) {
         function sportsCarFactory(e: Engine) { return new SportsCar(e); }
 
         var injector =
-            createInjector([Engine, provide(Car, {useFactory: sportsCarFactory, deps: [Engine]})]);
+            createInjector([Engine, {provide: Car, useFactory: sportsCarFactory, deps: [Engine]}]);
 
         var car = injector.get(Car);
         expect(car).toBeAnInstanceOf(SportsCar);
@@ -734,15 +673,15 @@ function declareTests({useJit}: {useJit: boolean}) {
       });
 
       it('should supporting provider to null', () => {
-        var injector = createInjector([provide(Engine, {useValue: null})]);
+        var injector = createInjector([{provide: Engine, useValue: null}]);
         var engine = injector.get(Engine);
         expect(engine).toBeNull();
       });
 
       it('should provide to an alias', () => {
         var injector = createInjector([
-          Engine, provide(SportsCar, {useClass: SportsCar}),
-          provide(Car, {useExisting: SportsCar})
+          Engine, {provide: SportsCar, useClass: SportsCar},
+          {provide: Car, useExisting: SportsCar}
         ]);
 
         var car = injector.get(Car);
@@ -753,8 +692,8 @@ function declareTests({useJit}: {useJit: boolean}) {
 
       it('should support multiProviders', () => {
         var injector = createInjector([
-          Engine, provide(Car, {useClass: SportsCar, multi: true}),
-          provide(Car, {useClass: CarWithOptionalEngine, multi: true})
+          Engine, {provide: Car, useClass: SportsCar, multi: true},
+          {provide: Car, useClass: CarWithOptionalEngine, multi: true}
         ]);
 
         var cars = injector.get(Car);
@@ -765,7 +704,7 @@ function declareTests({useJit}: {useJit: boolean}) {
 
       it('should support multiProviders that are created using useExisting', () => {
         var injector = createInjector(
-            [Engine, SportsCar, provide(Car, {useExisting: SportsCar, multi: true})]);
+            [Engine, SportsCar, {provide: Car, useExisting: SportsCar, multi: true}]);
 
         var cars = injector.get(Car);
         expect(cars.length).toEqual(1);
@@ -773,22 +712,22 @@ function declareTests({useJit}: {useJit: boolean}) {
       });
 
       it('should throw when the aliased provider does not exist', () => {
-        var injector = createInjector([provide('car', {useExisting: SportsCar})]);
+        var injector = createInjector([{provide: 'car', useExisting: SportsCar}]);
         var e = `No provider for ${stringify(SportsCar)}!`;
         expect(() => injector.get('car')).toThrowError(e);
       });
 
       it('should handle forwardRef in useExisting', () => {
         var injector = createInjector([
-          provide('originalEngine', {useClass: forwardRef(() => Engine)}),
-          provide('aliasedEngine', {useExisting: <any>forwardRef(() => 'originalEngine')})
+          {provide: 'originalEngine', useClass: forwardRef(() => Engine)},
+          {provide: 'aliasedEngine', useExisting: <any>forwardRef(() => 'originalEngine')}
         ]);
         expect(injector.get('aliasedEngine')).toBeAnInstanceOf(Engine);
       });
 
       it('should support overriding factory dependencies', () => {
         var injector = createInjector(
-            [Engine, provide(Car, {useFactory: (e: Engine) => new SportsCar(e), deps: [Engine]})]);
+            [Engine, {provide: Car, useFactory: (e: Engine) => new SportsCar(e), deps: [Engine]}]);
 
         var car = injector.get(Car);
         expect(car).toBeAnInstanceOf(SportsCar);
@@ -811,13 +750,13 @@ function declareTests({useJit}: {useJit: boolean}) {
 
       it('should use the last provider when there are multiple providers for same token', () => {
         var injector = createInjector(
-            [provide(Engine, {useClass: Engine}), provide(Engine, {useClass: TurboEngine})]);
+            [{provide: Engine, useClass: Engine}, {provide: Engine, useClass: TurboEngine}]);
 
         expect(injector.get(Engine)).toBeAnInstanceOf(TurboEngine);
       });
 
       it('should use non-type tokens', () => {
-        var injector = createInjector([provide('token', {useValue: 'value'})]);
+        var injector = createInjector([{provide: 'token', useValue: 'value'}]);
 
         expect(injector.get('token')).toEqual('value');
       });
@@ -825,7 +764,13 @@ function declareTests({useJit}: {useJit: boolean}) {
       it('should throw when given invalid providers', () => {
         expect(() => createInjector(<any>['blah']))
             .toThrowError(
-                'Invalid provider - only instances of Provider and Type are allowed, got: blah');
+                `Invalid provider for the NgModule 'SomeModule' - only instances of Provider and Type are allowed, got: [?blah?]`);
+      });
+
+      it('should throw when given blank providers', () => {
+        expect(() => createInjector(<any>[null, {provide: 'token', useValue: 'value'}]))
+            .toThrowError(
+                `Invalid provider for the NgModule 'SomeModule' - only instances of Provider and Type are allowed, got: [?null?, ...]`);
       });
 
       it('should provide itself', () => {
@@ -841,12 +786,12 @@ function declareTests({useJit}: {useJit: boolean}) {
       });
 
       it('should throw when trying to instantiate a cyclic dependency', () => {
-        expect(() => createInjector([Car, provide(Engine, {useClass: CyclicEngine})]))
+        expect(() => createInjector([Car, {provide: Engine, useClass: CyclicEngine}]))
             .toThrowError(/Cannot instantiate cyclic dependency! Car/g);
       });
 
       it('should support null values', () => {
-        var injector = createInjector([provide('null', {useValue: null})]);
+        var injector = createInjector([{provide: 'null', useValue: null}]);
         expect(injector.get('null')).toBe(null);
       });
 
@@ -865,7 +810,7 @@ function declareTests({useJit}: {useJit: boolean}) {
         it('should not use the child providers when resolving the dependencies of a parent provider',
            () => {
              var parent = createInjector([Car, Engine]);
-             var child = createInjector([provide(Engine, {useClass: TurboEngine})], parent);
+             var child = createInjector([{provide: Engine, useClass: TurboEngine}], parent);
 
              var carFromChild = child.get(Car);
              expect(carFromChild.engine).toBeAnInstanceOf(Engine);
@@ -873,7 +818,7 @@ function declareTests({useJit}: {useJit: boolean}) {
 
         it('should create new instance in a child injector', () => {
           var parent = createInjector([Engine]);
-          var child = createInjector([provide(Engine, {useClass: TurboEngine})], parent);
+          var child = createInjector([{provide: Engine, useClass: TurboEngine}], parent);
 
           var engineFromParent = parent.get(Engine);
           var engineFromChild = child.get(Engine);
@@ -889,19 +834,18 @@ function declareTests({useJit}: {useJit: boolean}) {
           it('should return a dependency from self', () => {
             var inj = createInjector([
               Engine,
-              provide(
-                  Car,
-                  {useFactory: (e: Engine) => new Car(e), deps: [[Engine, new SelfMetadata()]]})
+              {provide: Car, useFactory: (e: Engine) => new Car(e), deps: [[Engine, new Self()]]}
             ]);
 
             expect(inj.get(Car)).toBeAnInstanceOf(Car);
           });
 
           it('should throw when not requested provider on self', () => {
-            expect(() => createInjector([provide(Car, {
+            expect(() => createInjector([{
+                     provide: Car,
                      useFactory: (e: Engine) => new Car(e),
-                     deps: [[Engine, new SelfMetadata()]]
-                   })]))
+                     deps: [[Engine, new Self()]]
+                   }]))
                 .toThrowError(/No provider for Engine/g);
           });
         });
@@ -911,13 +855,76 @@ function declareTests({useJit}: {useJit: boolean}) {
             var parent = createInjector([Engine]);
             var child = createInjector(
                 [
-                  provide(Engine, {useClass: TurboEngine}),
-                  provide(Car, {useFactory: (e: Engine) => new Car(e), deps: [Engine]})
+                  {provide: Engine, useClass: TurboEngine},
+                  {provide: Car, useFactory: (e: Engine) => new Car(e), deps: [Engine]}
                 ],
                 parent);
 
             expect(child.get(Car).engine).toBeAnInstanceOf(TurboEngine);
           });
+        });
+      });
+
+      describe('lifecycle', () => {
+        it('should instantiate modules eagerly', () => {
+          let created = false;
+
+          @NgModule()
+          class ImportedModule {
+            constructor() { created = true; }
+          }
+
+          @NgModule({imports: [ImportedModule]})
+          class SomeModule {
+          }
+
+          createModule(SomeModule);
+
+          expect(created).toBe(true);
+        });
+
+        it('should instantiate providers that are not used by a module lazily', () => {
+          let created = false;
+
+          createInjector([{
+            provide: 'someToken',
+            useFactory: () => {
+              created = true;
+              return true;
+            }
+          }]);
+
+          expect(created).toBe(false);
+        });
+
+        it('should support ngOnDestroy on any provider', () => {
+          let destroyed = false;
+
+          class SomeInjectable {
+            ngOnDestroy() { destroyed = true; }
+          }
+
+          @NgModule({providers: [SomeInjectable]})
+          class SomeModule {
+          }
+
+          const moduleRef = createModule(SomeModule);
+          expect(destroyed).toBe(false);
+          moduleRef.destroy();
+          expect(destroyed).toBe(true);
+        });
+
+        it('should instantiate providers with lifecycle eagerly', () => {
+          let created = false;
+
+          class SomeInjectable {
+            constructor() { created = true; }
+            ngOnDestroy() {}
+          }
+
+          createInjector([SomeInjectable]);
+
+          expect(created).toBe(true);
         });
       });
 
@@ -1132,6 +1139,20 @@ function declareTests({useJit}: {useJit: boolean}) {
              const injector = createModule(SomeModule).injector;
              expect(injector.get('token1')).toBe('imported2');
            });
+
+        it('should throw when given invalid providers in an imported ModuleWithProviders', () => {
+          @NgModule()
+          class ImportedModule1 {
+          }
+
+          @NgModule({imports: [{ngModule: ImportedModule1, providers: [<any>'broken']}]})
+          class SomeModule {
+          }
+
+          expect(() => createModule(SomeModule).injector)
+              .toThrowError(
+                  `Invalid provider for the NgModule 'ImportedModule1' - only instances of Provider and Type are allowed, got: [?broken?]`);
+        });
       });
     });
   });

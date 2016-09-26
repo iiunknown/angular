@@ -6,13 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {describe, it, iit, ddescribe, expect, beforeEach,} from '@angular/core/testing/testing_internal';
 import {OnInit} from '@angular/core';
-import {Reflector, ReflectionInfo} from '@angular/core/src/reflection/reflection';
+import {ReflectionInfo, Reflector} from '@angular/core/src/reflection/reflection';
 import {ReflectionCapabilities} from '@angular/core/src/reflection/reflection_capabilities';
-import {ClassDecorator, ParamDecorator, PropDecorator, classDecorator, paramDecorator, propDecorator, HasGetterAndSetterDecorators} from './reflector_common';
-import {IS_DART} from '../../src/facade/lang';
+import {beforeEach, ddescribe, describe, expect, iit, it} from '@angular/core/testing/testing_internal';
 import {browserDetection} from '@angular/platform-browser/testing/browser_util';
+
+import {ClassDecorator, HasGetterAndSetterDecorators, ParamDecorator, PropDecorator, classDecorator, paramDecorator, propDecorator} from './reflector_common';
 
 class AType {
   value: any /** TODO #9100 */;
@@ -20,7 +20,7 @@ class AType {
   constructor(value: any /** TODO #9100 */) { this.value = value; }
 }
 
-@ClassDecorator('class')
+@ClassDecorator({value: 'class'})
 class ClassWithDecorators {
   @PropDecorator('p1') @PropDecorator('p2') a: any /** TODO #9100 */;
   b: any /** TODO #9100 */;
@@ -111,42 +111,35 @@ export function main() {
         expect(obj.b).toEqual(2);
       });
 
-      // Makes Edge to disconnect when running the full unit test campaign
-      // TODO: remove when issue is solved: https://github.com/angular/angular/issues/4756
-      if (!browserDetection.isEdge) {
-        it('should check args from no to max', () => {
-          var f = (t: any /** TODO #9100 */) => reflector.factory(t);
-          var checkArgs = (obj: any /** TODO #9100 */, args: any /** TODO #9100 */) =>
-              expect(obj.args).toEqual(args);
+      it('should check args from no to max', () => {
+        var f = (t: any /** TODO #9100 */) => reflector.factory(t);
+        var checkArgs = (obj: any /** TODO #9100 */, args: any /** TODO #9100 */) =>
+            expect(obj.args).toEqual(args);
 
-          // clang-format off
-          checkArgs(f(TestObjWith00Args)(), []);
-          checkArgs(f(TestObjWith01Args)(1), [1]);
-          checkArgs(f(TestObjWith02Args)(1, 2), [1, 2]);
-          checkArgs(f(TestObjWith03Args)(1, 2, 3), [1, 2, 3]);
-          checkArgs(f(TestObjWith04Args)(1, 2, 3, 4), [1, 2, 3, 4]);
-          checkArgs(f(TestObjWith05Args)(1, 2, 3, 4, 5), [1, 2, 3, 4, 5]);
-          checkArgs(f(TestObjWith06Args)(1, 2, 3, 4, 5, 6), [1, 2, 3, 4, 5, 6]);
-          checkArgs(f(TestObjWith07Args)(1, 2, 3, 4, 5, 6, 7), [1, 2, 3, 4, 5, 6, 7]);
-          checkArgs(f(TestObjWith08Args)(1, 2, 3, 4, 5, 6, 7, 8), [1, 2, 3, 4, 5, 6, 7, 8]);
-          checkArgs(f(TestObjWith09Args)(1, 2, 3, 4, 5, 6, 7, 8, 9), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
-          checkArgs(f(TestObjWith10Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-          checkArgs(f(TestObjWith11Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-          checkArgs(f(TestObjWith12Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-          checkArgs(f(TestObjWith13Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
-          checkArgs(f(TestObjWith14Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
-          checkArgs(f(TestObjWith15Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
-          checkArgs(f(TestObjWith16Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
-          checkArgs(f(TestObjWith17Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
-          checkArgs(f(TestObjWith18Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
-          checkArgs(f(TestObjWith19Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
-          checkArgs(f(TestObjWith20Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
-          // clang-format on
-        });
-      }
-
-      it('should throw when more than 20 arguments',
-         () => { expect(() => reflector.factory(TestObjWith21Args)).toThrowError(); });
+        // clang-format off
+        checkArgs(f(TestObjWith00Args)(), []);
+        checkArgs(f(TestObjWith01Args)(1), [1]);
+        checkArgs(f(TestObjWith02Args)(1, 2), [1, 2]);
+        checkArgs(f(TestObjWith03Args)(1, 2, 3), [1, 2, 3]);
+        checkArgs(f(TestObjWith04Args)(1, 2, 3, 4), [1, 2, 3, 4]);
+        checkArgs(f(TestObjWith05Args)(1, 2, 3, 4, 5), [1, 2, 3, 4, 5]);
+        checkArgs(f(TestObjWith06Args)(1, 2, 3, 4, 5, 6), [1, 2, 3, 4, 5, 6]);
+        checkArgs(f(TestObjWith07Args)(1, 2, 3, 4, 5, 6, 7), [1, 2, 3, 4, 5, 6, 7]);
+        checkArgs(f(TestObjWith08Args)(1, 2, 3, 4, 5, 6, 7, 8), [1, 2, 3, 4, 5, 6, 7, 8]);
+        checkArgs(f(TestObjWith09Args)(1, 2, 3, 4, 5, 6, 7, 8, 9), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        checkArgs(f(TestObjWith10Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        checkArgs(f(TestObjWith11Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+        checkArgs(f(TestObjWith12Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+        checkArgs(f(TestObjWith13Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+        checkArgs(f(TestObjWith14Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+        checkArgs(f(TestObjWith15Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+        checkArgs(f(TestObjWith16Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+        checkArgs(f(TestObjWith17Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+        checkArgs(f(TestObjWith18Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
+        checkArgs(f(TestObjWith19Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+        checkArgs(f(TestObjWith20Args)(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
+        // clang-format on
+      });
 
       it('should return a registered factory if available', () => {
         reflector.registerType(TestObj, new ReflectionInfo(null, null, () => 'fake'));
@@ -188,13 +181,6 @@ export function main() {
         reflector.registerType(TestObj, new ReflectionInfo(null, null, null, null, {'a': [1, 2]}));
         expect(reflector.propMetadata(TestObj)).toEqual({'a': [1, 2]});
       });
-
-      if (IS_DART) {
-        it('should merge metadata from getters and setters', () => {
-          var p = reflector.propMetadata(HasGetterAndSetterDecorators);
-          expect(p['a']).toEqual([propDecorator('get'), propDecorator('set')]);
-        });
-      }
     });
 
     describe('annotations', () => {
@@ -213,28 +199,6 @@ export function main() {
         expect(p).toEqual([]);
       });
     });
-
-    if (IS_DART) {
-      describe('interfaces', () => {
-        it('should return an array of interfaces for a type', () => {
-          var p = reflector.interfaces(ClassImplementingInterface);
-          expect(p).toEqual([Interface, Interface2]);
-        });
-
-        it('should return an empty array otherwise', () => {
-          var p = reflector.interfaces(ClassWithDecorators);
-          expect(p).toEqual([]);
-        });
-
-        it('should throw for undeclared lifecycle interfaces',
-           () => { expect(() => reflector.interfaces(ClassDoesNotDeclareOnInit)).toThrowError(); });
-
-        it('should throw for class inheriting a lifecycle impl and not declaring the interface',
-           () => {
-             expect(() => reflector.interfaces(SubClassDoesNotDeclareOnInit)).toThrowError();
-           });
-      });
-    }
 
     describe('getter', () => {
       it('returns a function reading a property', () => {
@@ -280,16 +244,6 @@ export function main() {
         expect(reflector.method('abc')('anything', ['fake'])).toEqual(['fake']);
       });
     });
-
-    if (IS_DART) {
-      describe('importUri', () => {
-        it('should return the importUri for a type', () => {
-          expect(reflector.importUri(TestObjWith00Args)
-                     .endsWith('test/core/reflection/reflector_spec.dart'))
-              .toBe(true);
-        });
-      });
-    }
   });
 }
 
